@@ -107,6 +107,27 @@ class TestCalcEngine(unittest.TestCase):
         self.assertTrue(10 < b < 100)
         self.assertTrue(2200 < k < 5500)
 
+    def test_hybrid_calculator_offsets(self):
+        # Base sunrise is 06:30. With +60 min offset, morning starts at 07:30
+        calc_offset = HybridCalculator(
+            min_brightness=1,
+            max_brightness=100,
+            min_kelvin=2200,
+            max_kelvin=5500,
+            min_sunrise="06:30",
+            max_sunrise="08:30",
+            min_sunset="17:00",
+            max_sunset="21:30",
+            sunrise_offset=60,
+            sunset_offset=-30,
+        )
+
+        # At 07:00, without offset it would be morning ramp, but with +60m offset it's still night!
+        dt_7am = datetime(2026, 11, 7, 7, 0, 0)
+        b, k, phase = calc_offset.calculate(dt_7am)
+        self.assertEqual(phase, "night")
+        self.assertEqual(b, 1)
+
 
 if __name__ == "__main__":
     unittest.main()

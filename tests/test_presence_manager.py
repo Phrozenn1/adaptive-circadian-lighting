@@ -115,6 +115,27 @@ class TestPresenceManager(unittest.TestCase):
         pm._schedule_debounce_or_dim()
         self.hass.loop.call_later.assert_called_with(45, pm._schedule_dim)
 
+    def test_sleep_motion_dnd_behavior(self):
+        turn_on_called = False
+        def turn_on_cb():
+            nonlocal turn_on_called
+            turn_on_called = True
+
+        from custom_components.adaptive_circadian_lighting.const import SLEEP_MOTION_DND
+        pm = PresenceManager(
+            self.hass,
+            sensors=["binary_sensor.bedroom_motion"],
+            auto_turn_on=True,
+            sleep_motion_behavior=SLEEP_MOTION_DND,
+            is_sleep_callback=lambda: True,
+            on_turn_on_adaptive_callback=turn_on_cb,
+        )
+        pm.room_state = STATE_OFF
+        pm._handle_reoccupancy(datetime.now(timezone.utc))
+
+        # Because DND is active during sleep, motion should NOT have turned on lights
+        self.assertFalse(turn_on_called)
+
 
 if __name__ == "__main__":
     unittest.main()

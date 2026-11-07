@@ -69,6 +69,30 @@ CONF_SLEEP_SCHEDULE_ENABLE = "sleep_schedule_enable"
 CONF_SLEEP_START_TIME = "sleep_start_time"
 CONF_SLEEP_END_TIME = "sleep_end_time"
 CONF_SLEEP_ENTITY = "sleep_entity"
+CONF_SLEEP_BRIGHTNESS = "sleep_brightness"
+CONF_SLEEP_COLOR_TEMP = "sleep_color_temp"
+CONF_SLEEP_RGB = "sleep_rgb"
+CONF_SLEEP_WEEKEND_ENABLE = "sleep_weekend_enable"
+CONF_SLEEP_WEEKEND_START_TIME = "sleep_weekend_start_time"
+CONF_SLEEP_WEEKEND_END_TIME = "sleep_weekend_end_time"
+CONF_SLEEP_MOTION_BEHAVIOR = "sleep_motion_behavior"
+SLEEP_MOTION_NIGHTLIGHT = "nightlight"
+SLEEP_MOTION_DND = "dnd"
+SLEEP_MOTION_BEHAVIORS = [SLEEP_MOTION_NIGHTLIGHT, SLEEP_MOTION_DND]
+
+# Sun & Sunset Offsets
+CONF_SUNRISE_OFFSET = "sunrise_offset"
+CONF_SUNSET_OFFSET = "sunset_offset"
+
+# Adapt only on bare turn-on / static while on
+CONF_ADAPT_ONLY_ON_BARE_TURN_ON = "adapt_only_on_bare_turn_on"
+
+# Evening Max Brightness Cap
+CONF_EVENING_MAX_BRIGHTNESS = "evening_max_brightness"
+
+# Initial adaptation toggles
+CONF_INITIAL_ADAPT_BRIGHTNESS = "initial_adapt_brightness"
+CONF_INITIAL_ADAPT_COLOR = "initial_adapt_color"
 
 # Hybrid Anchors
 CONF_MIN_SUNRISE_TIME = "min_sunrise_time"
@@ -82,6 +106,16 @@ CONF_CURVE_POINTS = "curve_points"
 DEFAULT_SLEEP_SCHEDULE_ENABLE = False
 DEFAULT_SLEEP_START_TIME = "23:00:00"
 DEFAULT_SLEEP_END_TIME = "06:30:00"
+DEFAULT_SLEEP_WEEKEND_ENABLE = False
+DEFAULT_SLEEP_WEEKEND_START_TIME = "23:30:00"
+DEFAULT_SLEEP_WEEKEND_END_TIME = "08:30:00"
+DEFAULT_SLEEP_MOTION_BEHAVIOR = SLEEP_MOTION_NIGHTLIGHT
+DEFAULT_SUNRISE_OFFSET = 0
+DEFAULT_SUNSET_OFFSET = 0
+DEFAULT_ADAPT_ONLY_ON_BARE_TURN_ON = False
+DEFAULT_EVENING_MAX_BRIGHTNESS = 0
+DEFAULT_INITIAL_ADAPT_BRIGHTNESS = True
+DEFAULT_INITIAL_ADAPT_COLOR = True
 
 # Defaults
 DEFAULT_NAME = "Living Room"

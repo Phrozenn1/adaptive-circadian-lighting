@@ -55,12 +55,29 @@ from .const import (
     CONF_TRANSITION,
     CONF_TURN_ON_LUX_THRESHOLD,
     CONF_WEATHER_ENTITY,
+    CONF_ADAPT_ONLY_ON_BARE_TURN_ON,
+    CONF_EVENING_MAX_BRIGHTNESS,
+    CONF_INITIAL_ADAPT_BRIGHTNESS,
+    CONF_INITIAL_ADAPT_COLOR,
+    CONF_SLEEP_BRIGHTNESS,
+    CONF_SLEEP_COLOR_TEMP,
+    CONF_SLEEP_MOTION_BEHAVIOR,
+    CONF_SLEEP_RGB,
+    CONF_SLEEP_WEEKEND_ENABLE,
+    CONF_SLEEP_WEEKEND_END_TIME,
+    CONF_SLEEP_WEEKEND_START_TIME,
+    CONF_SUNRISE_OFFSET,
+    CONF_SUNSET_OFFSET,
+    DEFAULT_ADAPT_ONLY_ON_BARE_TURN_ON,
     DEFAULT_AUTO_TURN_ON,
     DEFAULT_CALC_MODE,
     DEFAULT_COLOR_MODE,
     DEFAULT_DIM_BRIGHTNESS,
     DEFAULT_DIM_TIMEOUT,
+    DEFAULT_EVENING_MAX_BRIGHTNESS,
     DEFAULT_GRACE_PERIOD,
+    DEFAULT_INITIAL_ADAPT_BRIGHTNESS,
+    DEFAULT_INITIAL_ADAPT_COLOR,
     DEFAULT_INTERVAL,
     DEFAULT_MAX_BRIGHTNESS,
     DEFAULT_MAX_COLOR_TEMP,
@@ -73,11 +90,21 @@ from .const import (
     DEFAULT_MOTION_DEBOUNCE,
     DEFAULT_OFF_TIMEOUT,
     DEFAULT_OVERRIDE_TIMEOUT,
+    DEFAULT_SLEEP_BRIGHTNESS,
+    DEFAULT_SLEEP_COLOR_TEMP,
     DEFAULT_SLEEP_END_TIME,
+    DEFAULT_SLEEP_MOTION_BEHAVIOR,
+    DEFAULT_SLEEP_RGB,
     DEFAULT_SLEEP_SCHEDULE_ENABLE,
     DEFAULT_SLEEP_START_TIME,
+    DEFAULT_SLEEP_WEEKEND_ENABLE,
+    DEFAULT_SLEEP_WEEKEND_END_TIME,
+    DEFAULT_SLEEP_WEEKEND_START_TIME,
+    DEFAULT_SUNRISE_OFFSET,
+    DEFAULT_SUNSET_OFFSET,
     DEFAULT_TRANSITION,
     DEFAULT_TURN_ON_LUX_THRESHOLD,
+    PROFILE_EVENING,
     PROFILE_NORMAL,
     PROFILE_SLEEP,
 )
@@ -107,11 +134,16 @@ class AdaptiveCoordinator:
         self.max_kelvin: int = entry.data.get(CONF_MAX_COLOR_TEMP, DEFAULT_MAX_COLOR_TEMP)
         self.interval: int = entry.data.get(CONF_INTERVAL, DEFAULT_INTERVAL)
         self.transition: float = float(entry.data.get(CONF_TRANSITION, DEFAULT_TRANSITION))
+        self.sunrise_offset: int = entry.data.get(CONF_SUNRISE_OFFSET, DEFAULT_SUNRISE_OFFSET)
+        self.sunset_offset: int = entry.data.get(CONF_SUNSET_OFFSET, DEFAULT_SUNSET_OFFSET)
+        self.adapt_only_on_turn_on: bool = entry.data.get(CONF_ADAPT_ONLY_ON_BARE_TURN_ON, DEFAULT_ADAPT_ONLY_ON_BARE_TURN_ON)
+        self.evening_max_brightness: int = entry.data.get(CONF_EVENING_MAX_BRIGHTNESS, DEFAULT_EVENING_MAX_BRIGHTNESS)
+        self._already_adapted_lights: set[str] = set()
 
         # Toggles
         self.adaptation_enabled: bool = True
-        self.adapt_brightness_enabled: bool = True
-        self.adapt_color_enabled: bool = True
+        self.adapt_brightness_enabled: bool = entry.data.get(CONF_INITIAL_ADAPT_BRIGHTNESS, DEFAULT_INITIAL_ADAPT_BRIGHTNESS)
+        self.adapt_color_enabled: bool = entry.data.get(CONF_INITIAL_ADAPT_COLOR, DEFAULT_INITIAL_ADAPT_COLOR)
 
         # State outputs
         self.target_brightness: int = 100
@@ -121,7 +153,12 @@ class AdaptiveCoordinator:
 
         # Engines
         self.sun_calc = SunCalculator(
-            self.min_brightness, self.max_brightness, self.min_kelvin, self.max_kelvin
+            self.min_brightness,
+            self.max_brightness,
+            self.min_kelvin,
+            self.max_kelvin,
+            sunrise_offset=self.sunrise_offset,
+            sunset_offset=self.sunset_offset,
         )
         self.hybrid_calc = HybridCalculator(
             self.min_brightness,
@@ -132,6 +169,8 @@ class AdaptiveCoordinator:
             max_sunrise=entry.data.get(CONF_MAX_SUNRISE_TIME, DEFAULT_MAX_SUNRISE),
             min_sunset=entry.data.get(CONF_MIN_SUNSET_TIME, DEFAULT_MIN_SUNSET),
             max_sunset=entry.data.get(CONF_MAX_SUNSET_TIME, DEFAULT_MAX_SUNSET),
+            sunrise_offset=self.sunrise_offset,
+            sunset_offset=self.sunset_offset,
         )
         self.curve_calc = CurveCalculator(entry.data.get(CONF_CURVE_POINTS))
 
@@ -149,6 +188,8 @@ class AdaptiveCoordinator:
                 auto_turn_on=entry.data.get(CONF_AUTO_TURN_ON, DEFAULT_AUTO_TURN_ON),
                 turn_on_lux_threshold=entry.data.get(CONF_TURN_ON_LUX_THRESHOLD, DEFAULT_TURN_ON_LUX_THRESHOLD),
                 motion_debounce=entry.data.get(CONF_MOTION_DEBOUNCE, DEFAULT_MOTION_DEBOUNCE),
+                sleep_motion_behavior=entry.data.get(CONF_SLEEP_MOTION_BEHAVIOR, DEFAULT_SLEEP_MOTION_BEHAVIOR),
+                is_sleep_callback=lambda: self.profile_mgr.is_sleep(),
                 on_dim_callback=self._on_presence_dim,
                 on_off_callback=self._on_presence_off,
                 on_restore_manual_callback=self._on_presence_restore_manual,
@@ -166,9 +207,15 @@ class AdaptiveCoordinator:
         )
 
         self.profile_mgr = ProfileManager(
+            sleep_brightness=entry.data.get(CONF_SLEEP_BRIGHTNESS, DEFAULT_SLEEP_BRIGHTNESS),
+            sleep_color_temp=entry.data.get(CONF_SLEEP_COLOR_TEMP, DEFAULT_SLEEP_COLOR_TEMP),
+            sleep_rgb=entry.data.get(CONF_SLEEP_RGB, DEFAULT_SLEEP_RGB),
             sleep_schedule_enable=entry.data.get(CONF_SLEEP_SCHEDULE_ENABLE, DEFAULT_SLEEP_SCHEDULE_ENABLE),
             sleep_start_time=entry.data.get(CONF_SLEEP_START_TIME, DEFAULT_SLEEP_START_TIME),
             sleep_end_time=entry.data.get(CONF_SLEEP_END_TIME, DEFAULT_SLEEP_END_TIME),
+            sleep_weekend_enable=entry.data.get(CONF_SLEEP_WEEKEND_ENABLE, DEFAULT_SLEEP_WEEKEND_ENABLE),
+            sleep_weekend_start_time=entry.data.get(CONF_SLEEP_WEEKEND_START_TIME, DEFAULT_SLEEP_WEEKEND_START_TIME),
+            sleep_weekend_end_time=entry.data.get(CONF_SLEEP_WEEKEND_END_TIME, DEFAULT_SLEEP_WEEKEND_END_TIME),
         )
         self.sleep_entity: Optional[str] = entry.data.get(CONF_SLEEP_ENTITY)
         self._unsub_sleep_entity: Optional[Callable[[], None]] = None
@@ -269,8 +316,8 @@ class AdaptiveCoordinator:
         now = datetime.now()
         elevation = self._get_solar_elevation()
 
-        # Evaluate automatic sleep schedule
-        if self.profile_mgr.evaluate_schedule(now.time()):
+        # Evaluate automatic sleep schedule (passes full datetime to support weekend schedule)
+        if self.profile_mgr.evaluate_schedule(now):
             _LOGGER.debug(
                 "AdaptiveCoordinator: sleep schedule switched profile to %s",
                 self.profile_mgr.active_profile,
@@ -281,6 +328,8 @@ class AdaptiveCoordinator:
         if profile_override is not None:
             self.target_brightness, self.target_kelvin, _ = profile_override
             self.phase = f"profile_{self.profile_mgr.active_profile}"
+            if self.evening_max_brightness > 0 and self.profile_mgr.active_profile == PROFILE_EVENING:
+                self.target_brightness = min(self.target_brightness, self.evening_max_brightness)
             return
 
         # 2. Base Calculation Mode
@@ -303,9 +352,16 @@ class AdaptiveCoordinator:
         self.target_kelvin = max(1000, min(10000, kelvin + boost_k))
         self.phase = phase
 
+        # 4. Evening Brightness Cap
+        if self.evening_max_brightness > 0:
+            is_evening_or_night = phase in ("evening_ramp", "night", "twilight")
+            if is_evening_or_night:
+                self.target_brightness = min(self.target_brightness, self.evening_max_brightness)
+
     def _get_anti_glare_payload(self, entity_id: str) -> Dict[str, Any]:
         """Return target payload for intercepted light.turn_on."""
         self._calculate_target_values()
+        self._already_adapted_lights.add(entity_id)
         st = self.hass.states.get(entity_id)
         modes = st.attributes.get(ATTR_SUPPORTED_COLOR_MODES) if st else []
         min_k = st.attributes.get(ATTR_MIN_COLOR_TEMP_KELVIN) if st else None
@@ -343,9 +399,15 @@ class AdaptiveCoordinator:
 
             st = self.hass.states.get(light_id)
             if not st or st.state != "on":
+                self._already_adapted_lights.discard(light_id)
+                continue
+
+            # If adapt_only_on_turn_on is active, do not adapt again while already on
+            if self.adapt_only_on_turn_on and light_id in self._already_adapted_lights:
                 continue
 
             await self._async_apply_to_light(light_id)
+            self._already_adapted_lights.add(light_id)
 
     async def _async_apply_to_light(self, light_id: str, custom_transition: Optional[float] = None) -> None:
         """Send adapted brightness and color to a single light."""
@@ -436,6 +498,7 @@ class AdaptiveCoordinator:
         self._calculate_target_values()
         for light_id in self.lights:
             await self._async_apply_to_light(light_id, custom_transition=1.0)
+            self._already_adapted_lights.add(light_id)
 
     # --- Override Callbacks ---
     def _on_manual_change(self, entity_id: str, attributes: Dict[str, Any]) -> None:

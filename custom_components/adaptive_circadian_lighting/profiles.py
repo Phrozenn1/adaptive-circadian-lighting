@@ -1,8 +1,8 @@
 """Lighting profiles management for Adaptive Circadian Lighting."""
 from __future__ import annotations
 
-from datetime import time
-from typing import Any, Dict, Optional, Tuple
+from datetime import datetime, time
+from typing import Any, Dict, Optional, Tuple, Union
 
 from .const import (
     DEFAULT_SLEEP_BRIGHTNESS,
@@ -11,6 +11,9 @@ from .const import (
     DEFAULT_SLEEP_RGB,
     DEFAULT_SLEEP_SCHEDULE_ENABLE,
     DEFAULT_SLEEP_START_TIME,
+    DEFAULT_SLEEP_WEEKEND_ENABLE,
+    DEFAULT_SLEEP_WEEKEND_END_TIME,
+    DEFAULT_SLEEP_WEEKEND_START_TIME,
     PROFILE_EVENING,
     PROFILE_FOCUS,
     PROFILE_MORNING,
@@ -33,6 +36,9 @@ class ProfileManager:
         sleep_schedule_enable: bool = DEFAULT_SLEEP_SCHEDULE_ENABLE,
         sleep_start_time: str = DEFAULT_SLEEP_START_TIME,
         sleep_end_time: str = DEFAULT_SLEEP_END_TIME,
+        sleep_weekend_enable: bool = DEFAULT_SLEEP_WEEKEND_ENABLE,
+        sleep_weekend_start_time: str = DEFAULT_SLEEP_WEEKEND_START_TIME,
+        sleep_weekend_end_time: str = DEFAULT_SLEEP_WEEKEND_END_TIME,
     ) -> None:
         self.active_profile = (
             active_profile if active_profile in PROFILES else PROFILE_NORMAL
@@ -43,16 +49,52 @@ class ProfileManager:
         self.sleep_schedule_enable = sleep_schedule_enable
         self.sleep_start_time = sleep_start_time
         self.sleep_end_time = sleep_end_time
+        self.sleep_weekend_enable = sleep_weekend_enable
+        self.sleep_weekend_start_time = sleep_weekend_start_time
+        self.sleep_weekend_end_time = sleep_weekend_end_time
         self.sleep_activated_by_schedule = False
 
-    def is_time_in_sleep_window(self, current_time: time) -> bool:
-        """Check if a time is within the configured sleep schedule."""
+    def is_time_in_sleep_window(self, current_dt_or_time: Union[datetime, time]) -> bool:
+        """Check if a time or datetime is within the configured sleep schedule."""
         if not self.sleep_schedule_enable:
             return False
 
+        start_str = self.sleep_start_time
+        end_str = self.sleep_end_time
+
+        # Check weekend schedule if datetime object is provided
+        if isinstance(current_dt_or_time, datetime):
+            current_time = current_dt_or_time.time()
+            if self.sleep_weekend_enable:
+                wd = current_dt_or_time.weekday()
+                # Friday (4): Evening bedtime is weekend time
+                if wd == 4:
+                    if current_dt_or_time.hour >= 12:
+                        start_str = self.sleep_weekend_start_time
+                    else:
+                        end_str = self.sleep_end_time
+                # Saturday (5): Morning wakeup is weekend time, evening bedtime is weekend time
+                elif wd == 5:
+                    if current_dt_or_time.hour < 12:
+                        end_str = self.sleep_weekend_end_time
+                    else:
+                        start_str = self.sleep_weekend_start_time
+                # Sunday (6): Morning wakeup is weekend time, evening bedtime is weekday time
+                elif wd == 6:
+                    if current_dt_or_time.hour < 12:
+                        end_str = self.sleep_weekend_end_time
+                    else:
+                        start_str = self.sleep_start_time
+                # Mon-Thu (0, 1, 2, 3): Normal weekday
+                else:
+                    start_str = self.sleep_start_time
+                    end_str = self.sleep_end_time
+        else:
+            current_time = current_dt_or_time
+
         try:
-            start_parts = [int(p) for p in str(self.sleep_start_time).split(":")[:2]]
-            end_parts = [int(p) for p in str(self.sleep_end_time).split(":")[:2]]
+            start_parts = [int(p) for p in str(start_str).split(":")[:2]]
+            end_parts = [int(p) for p in str(end_str).split(":")[:2]]
             start = time(start_parts[0], start_parts[1])
             end = time(end_parts[0], end_parts[1])
         except Exception:
@@ -64,12 +106,12 @@ class ProfileManager:
             # Wrap around midnight (e.g. 23:00 to 06:30)
             return current_time >= start or current_time < end
 
-    def evaluate_schedule(self, current_time: time) -> bool:
+    def evaluate_schedule(self, current_dt_or_time: Union[datetime, time]) -> bool:
         """Evaluate schedule and update profile. Returns True if profile changed."""
         if not self.sleep_schedule_enable:
             return False
 
-        in_window = self.is_time_in_sleep_window(current_time)
+        in_window = self.is_time_in_sleep_window(current_dt_or_time)
 
         if in_window:
             if self.active_profile == PROFILE_NORMAL:

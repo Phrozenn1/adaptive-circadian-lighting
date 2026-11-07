@@ -2,55 +2,73 @@
   "config": {
     "step": {
       "user": {
-        "title": "Adaptives Zirkadianes Licht - Raumeinrichtung",
-        "description": "Richten Sie eine neue zirkadiane Beleuchtungszone ein.",
+        "title": "Adaptives Zirkadianes Licht - Raum-Setup",
+        "description": "Konfigurieren Sie eine neue zirkadiane Lichtzone.",
         "data": {
-          "name": "Raum- / Zonenname",
+          "name": "Name des Raums / der Zone",
           "lights": "Lampen"
         }
       },
       "modes": {
         "title": "Berechnungs- und Farbmodus",
-        "description": "Wählen Sie, wie die Kurve berechnet und die Farbe an die Lampen übertragen wird.",
+        "description": "Wählen Sie, wie die Kurve berechnet und die Farbe übertragen wird.",
         "data": {
-          "calc_mode": "Berechnungsmodus",
-          "color_mode": "Farbmodus"
+          "calc_mode": "Berechnungsmodell",
+          "color_mode": "Farbmodus",
+          "adapt_only_on_bare_turn_on": "Nur beim Einschalten anpassen (statisch während an)",
+          "sunrise_offset": "Sonnenaufgang-Versatz (Minuten, +/-)",
+          "sunset_offset": "Sonnenuntergang-Versatz (Minuten, +/-)"
         }
       },
       "weather": {
         "title": "Wetter- und Lux-Kompensation",
-        "description": "Kompensieren Sie bewölkte und regnerische Tage anhand von Wetterdaten oder einem physischen Lux-Sensor.",
+        "description": "Gleicht bewölkte Tage anhand von Wetterdaten oder Helligkeitssensoren aus.",
         "data": {
-          "weather_entity": "Wetter-Entität",
+          "weather_entity": "Wetterentität",
           "lux_sensor": "Helligkeitssensor (Lux)",
-          "prioritize_lux": "Physischen Lux-Sensor gegenüber Wettervorhersage priorisieren",
-          "cloud_boost_pct": "Wolken-Helligkeitsverstärkung (+%)",
-          "cloud_boost_kelvin": "Wolken-Farbtemperaturverstärkung (+K)"
+          "prioritize_lux": "Physischen Lux-Sensor bevorzugen",
+          "cloud_boost_pct": "Wolken-Boost Helligkeit (+%)",
+          "cloud_boost_kelvin": "Wolken-Boost Farbtemperatur (+K)"
         }
       },
       "presence": {
         "title": "Präsenz- und Bewegungssteuerung",
-        "description": "Lampen automatisch dimmen und ausschalten, wenn der Raum leer ist, mit Speicher für manuelle Einstellungen.",
+        "description": "Automatisches 2-Stufen-Dimmen und Abschalten bei leerem Raum.",
         "data": {
-          "presence_enable": "Präsenzautomatisierung aktivieren",
+          "presence_enable": "Präsenzsteuerung aktivieren",
           "presence_sensors": "Bewegungs- / Präsenzsensoren",
-          "dim_timeout": "Dimm-Verzögerung (Sekunden ohne Bewegung vor dem Dimmen)",
-          "off_timeout": "Ausschalt-Verzögerung (Sekunden nach dem Dimmen)",
-          "grace_period": "Toleranzzeit (Sekunden für das Merken manueller Einstellungen beim Wiederbetreten)",
+          "auto_turn_on": "Licht bei Bewegung automatisch einschalten",
+          "sleep_motion_behavior": "Bewegungsverhalten im Nachtmodus",
+          "motion_debounce": "Bewegungspuffer (Sekunden, für Aqara-Sensoren)",
+          "turn_on_lux_threshold": "Tageslichtschwelle für Einschalten (Lux)",
+          "dim_timeout": "Dimm-Verzögerung (Sekunden)",
+          "off_timeout": "Ausschalt-Verzögerung (Sekunden)",
+          "grace_period": "Toleranzzeit für manuelle Einstellungen (Sekunden)",
           "dim_brightness": "Gedimmte Helligkeit (%)"
         }
       },
       "limits": {
-        "title": "Grenzwerte und Schwellen",
-        "description": "Legen Sie Grenzen für Helligkeit und Farbtemperatur fest.",
+        "title": "Grenzwerte, Intervalle und Nachtmodus",
+        "description": "Helligkeits-, Farbtemperatur- und Nachtmodus-Einstellungen.",
         "data": {
           "min_brightness": "Minimale Helligkeit (%)",
           "max_brightness": "Maximale Helligkeit (%)",
-          "min_color_temp": "Minimale Farbtemperatur (Warmes Kelvin)",
-          "max_color_temp": "Maximale Farbtemperatur (Kühles Kelvin)",
+          "evening_max_brightness": "Maximale Abendhelligkeit (%, 0 = deaktiviert)",
+          "min_color_temp": "Wärmste Farbtemperatur (Kelvin)",
+          "max_color_temp": "Kälteste Farbtemperatur (Kelvin)",
+          "interval": "Aktualisierungsintervall (Sekunden)",
           "transition": "Übergangszeit (Sekunden)",
-          "override_timeout": "Zeitlimit für manuelle Übersteuerung (Minuten)",
-          "anti_glare": "Blendschutz (verhindert grelles Aufblitzen nachts)"
+          "override_timeout": "Timeout für manuelle Übersteuerung (Minuten)",
+          "anti_glare": "Blendschutz beim Einschalten",
+          "sleep_schedule_enable": "Automatischen Nachtmodus-Zeitplan aktivieren",
+          "sleep_start_time": "Nachtmodus Startzeit",
+          "sleep_end_time": "Nachtmodus Endzeit",
+          "sleep_brightness": "Nachtmodus Helligkeit (%)",
+          "sleep_color_temp": "Nachtmodus Farbtemperatur (Kelvin)",
+          "sleep_weekend_enable": "Separater Wochenend-Zeitplan",
+          "sleep_weekend_start_time": "Wochenende: Startzeit",
+          "sleep_weekend_end_time": "Wochenende: Endzeit",
+          "sleep_entity": "Externer Schlafsensor (Optional)"
         }
       }
     }
@@ -58,20 +76,44 @@
   "options": {
     "step": {
       "init": {
-        "title": "Einstellungen für adaptives zirkadianes Licht",
-        "description": "Passen Sie Lampen, Grenzwerte, Wetter und Modi an.",
+        "title": "Einstellungen für adaptives Licht",
+        "description": "Lampen, Grenzen, Wetter, Intervalle und Zeitpläne anpassen.",
         "data": {
           "lights": "Lampen",
-          "calc_mode": "Berechnungsmodus",
+          "calc_mode": "Berechnungsmodell",
           "color_mode": "Farbmodus",
-          "weather_entity": "Wetter-Entität",
-          "lux_sensor": "Helligkeitssensor (Lux)",
+          "adapt_only_on_bare_turn_on": "Nur beim Einschalten anpassen",
+          "sunrise_offset": "Sonnenaufgang-Versatz (Minuten)",
+          "sunset_offset": "Sonnenuntergang-Versatz (Minuten)",
+          "weather_entity": "Wetterentität",
+          "lux_sensor": "Lux-Sensor",
           "min_brightness": "Minimale Helligkeit (%)",
           "max_brightness": "Maximale Helligkeit (%)",
-          "min_color_temp": "Minimale Farbtemperatur (Kelvin)",
-          "max_color_temp": "Maximale Farbtemperatur (Kelvin)",
-          "override_timeout": "Zeitlimit für manuelle Übersteuerung (Minuten)",
-          "anti_glare": "Blendschutz"
+          "evening_max_brightness": "Max. Abendhelligkeit (%, 0 = aus)",
+          "min_color_temp": "Wärmste Farbtemperatur (Kelvin)",
+          "max_color_temp": "Kälteste Farbtemperatur (Kelvin)",
+          "interval": "Aktualisierungsintervall (Sekunden)",
+          "override_timeout": "Übersteuerungs-Timeout (Minuten)",
+          "anti_glare": "Blendschutz",
+          "presence_enable": "Präsenzerkennung aktivieren",
+          "presence_sensors": "Sensoren",
+          "auto_turn_on": "Bei Bewegung einschalten",
+          "sleep_motion_behavior": "Bewegungsverhalten im Nachtmodus",
+          "motion_debounce": "Bewegungspuffer (Sekunden)",
+          "turn_on_lux_threshold": "Tageslichtschwelle (Lux)",
+          "dim_timeout": "Dimmzeit (Sekunden)",
+          "off_timeout": "Ausschaltzeit (Sekunden)",
+          "grace_period": "Toleranzzeit (Sekunden)",
+          "dim_brightness": "Gedimmte Helligkeit (%)",
+          "sleep_schedule_enable": "Nachtmodus-Zeitplan aktivieren",
+          "sleep_start_time": "Startzeit",
+          "sleep_end_time": "Endzeit",
+          "sleep_brightness": "Nachtmodus Helligkeit (%)",
+          "sleep_color_temp": "Nachtmodus Farbtemperatur (Kelvin)",
+          "sleep_weekend_enable": "Wochenend-Zeitplan",
+          "sleep_weekend_start_time": "Wochenende Startzeit",
+          "sleep_weekend_end_time": "Wochenende Endzeit",
+          "sleep_entity": "Externer Schlafsensor"
         }
       }
     }
@@ -85,14 +127,14 @@
     },
     "select": {
       "profile": { "name": "Profil" },
-      "calc_mode": { "name": "Berechnungsmodus" },
+      "calc_mode": { "name": "Berechnungsmodell" },
       "color_mode": { "name": "Farbmodus" }
     },
     "sensor": {
       "target_brightness": { "name": "Ziel-Helligkeit" },
       "target_color_temp": { "name": "Ziel-Farbtemperatur" },
       "phase": { "name": "Zirkadiane Phase" },
-      "weather_boost": { "name": "Wetter-Kompensation" },
+      "weather_boost": { "name": "Wetter-Boost" },
       "manual_overrides": { "name": "Manuelle Übersteuerungen" },
       "presence_state": { "name": "Präsenzstatus" }
     }
@@ -100,9 +142,9 @@
   "selector": {
     "calc_modes": {
       "options": {
-        "sun": "Reine Sonnenposition (Astral)",
-        "hybrid": "Hybrid (Sonne mit festen Zeitankern)",
-        "curve": "Benutzerdefinierte 24h-Kurve (Spline)",
+        "sun": "Astronomische Sonnenposition",
+        "hybrid": "Hybrid (Sonne mit Zeitankern)",
+        "curve": "Benutzerdefinierte 24h-Kurve",
         "lux": "Wetter- und Lux-kompensiert"
       }
     },
@@ -110,7 +152,13 @@
       "options": {
         "kelvin": "Farbtemperatur (Kelvin)",
         "rgb": "RGB-Farbe",
-        "auto": "Auto / Hybrid (Kelvin tagsüber, tiefes RGB nachts)"
+        "auto": "Automatisch / Hybrid (Kelvin am Tag, tiefes RGB nachts)"
+      }
+    },
+    "sleep_motion_behaviors": {
+      "options": {
+        "nightlight": "Nachtlicht (mit Nachtmodus-Einstellungen einschalten)",
+        "dnd": "Nicht stören (Bewegung ignorieren, Licht bleibt aus)"
       }
     }
   }

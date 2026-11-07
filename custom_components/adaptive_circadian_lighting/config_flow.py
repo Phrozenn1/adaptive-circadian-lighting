@@ -10,6 +10,7 @@ from homeassistant.helpers import selector
 from .const import (
     CALC_MODES,
     COLOR_MODES,
+    CONF_ADAPT_ONLY_ON_BARE_TURN_ON,
     CONF_ANTI_GLARE,
     CONF_AUTO_TURN_ON,
     CONF_CALC_MODE,
@@ -18,7 +19,10 @@ from .const import (
     CONF_COLOR_MODE,
     CONF_DIM_BRIGHTNESS,
     CONF_DIM_TIMEOUT,
+    CONF_EVENING_MAX_BRIGHTNESS,
     CONF_GRACE_PERIOD,
+    CONF_INITIAL_ADAPT_BRIGHTNESS,
+    CONF_INITIAL_ADAPT_COLOR,
     CONF_INTERVAL,
     CONF_LIGHTS,
     CONF_LUX_SENSOR,
@@ -33,13 +37,22 @@ from .const import (
     CONF_PRESENCE_ENABLE,
     CONF_PRESENCE_SENSORS,
     CONF_PRIORITIZE_LUX,
+    CONF_SLEEP_BRIGHTNESS,
+    CONF_SLEEP_COLOR_TEMP,
     CONF_SLEEP_END_TIME,
     CONF_SLEEP_ENTITY,
+    CONF_SLEEP_MOTION_BEHAVIOR,
     CONF_SLEEP_SCHEDULE_ENABLE,
     CONF_SLEEP_START_TIME,
+    CONF_SLEEP_WEEKEND_ENABLE,
+    CONF_SLEEP_WEEKEND_END_TIME,
+    CONF_SLEEP_WEEKEND_START_TIME,
+    CONF_SUNRISE_OFFSET,
+    CONF_SUNSET_OFFSET,
     CONF_TRANSITION,
     CONF_TURN_ON_LUX_THRESHOLD,
     CONF_WEATHER_ENTITY,
+    DEFAULT_ADAPT_ONLY_ON_BARE_TURN_ON,
     DEFAULT_AUTO_TURN_ON,
     DEFAULT_CALC_MODE,
     DEFAULT_CLOUD_BOOST_KELVIN,
@@ -47,7 +60,10 @@ from .const import (
     DEFAULT_COLOR_MODE,
     DEFAULT_DIM_BRIGHTNESS,
     DEFAULT_DIM_TIMEOUT,
+    DEFAULT_EVENING_MAX_BRIGHTNESS,
     DEFAULT_GRACE_PERIOD,
+    DEFAULT_INITIAL_ADAPT_BRIGHTNESS,
+    DEFAULT_INITIAL_ADAPT_COLOR,
     DEFAULT_INTERVAL,
     DEFAULT_MAX_BRIGHTNESS,
     DEFAULT_MAX_COLOR_TEMP,
@@ -58,12 +74,21 @@ from .const import (
     DEFAULT_OFF_TIMEOUT,
     DEFAULT_OVERRIDE_TIMEOUT,
     DEFAULT_PRIORITIZE_LUX,
+    DEFAULT_SLEEP_BRIGHTNESS,
+    DEFAULT_SLEEP_COLOR_TEMP,
     DEFAULT_SLEEP_END_TIME,
+    DEFAULT_SLEEP_MOTION_BEHAVIOR,
     DEFAULT_SLEEP_SCHEDULE_ENABLE,
     DEFAULT_SLEEP_START_TIME,
+    DEFAULT_SLEEP_WEEKEND_ENABLE,
+    DEFAULT_SLEEP_WEEKEND_END_TIME,
+    DEFAULT_SLEEP_WEEKEND_START_TIME,
+    DEFAULT_SUNRISE_OFFSET,
+    DEFAULT_SUNSET_OFFSET,
     DEFAULT_TRANSITION,
     DEFAULT_TURN_ON_LUX_THRESHOLD,
     DOMAIN,
+    SLEEP_MOTION_BEHAVIORS,
 )
 
 
@@ -115,6 +140,13 @@ class AdaptiveCircadianConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         translation_key="color_modes",
                     )
                 ),
+                vol.Required(CONF_ADAPT_ONLY_ON_BARE_TURN_ON, default=DEFAULT_ADAPT_ONLY_ON_BARE_TURN_ON): bool,
+                vol.Required(CONF_SUNRISE_OFFSET, default=DEFAULT_SUNRISE_OFFSET): selector.NumberSelector(
+                    selector.NumberSelectorConfig(min=-120, max=120, step=5, unit_of_measurement="min")
+                ),
+                vol.Required(CONF_SUNSET_OFFSET, default=DEFAULT_SUNSET_OFFSET): selector.NumberSelector(
+                    selector.NumberSelectorConfig(min=-120, max=120, step=5, unit_of_measurement="min")
+                ),
             }
         )
         return self.async_show_form(step_id="modes", data_schema=schema, errors=errors)
@@ -159,6 +191,13 @@ class AdaptiveCircadianConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     selector.EntitySelectorConfig(domain="binary_sensor", multiple=True)
                 ),
                 vol.Required(CONF_AUTO_TURN_ON, default=DEFAULT_AUTO_TURN_ON): bool,
+                vol.Required(CONF_SLEEP_MOTION_BEHAVIOR, default=DEFAULT_SLEEP_MOTION_BEHAVIOR): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=SLEEP_MOTION_BEHAVIORS,
+                        mode=selector.SelectSelectorMode.DROPDOWN,
+                        translation_key="sleep_motion_behaviors",
+                    )
+                ),
                 vol.Required(CONF_MOTION_DEBOUNCE, default=DEFAULT_MOTION_DEBOUNCE): selector.NumberSelector(
                     selector.NumberSelectorConfig(min=0, max=180, step=5, unit_of_measurement="s")
                 ),
@@ -182,7 +221,7 @@ class AdaptiveCircadianConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(step_id="presence", data_schema=schema, errors=errors)
 
     async def async_step_limits(self, user_input=None):
-        """Step 5: Limits, transitions and anti-glare."""
+        """Step 5: Limits, transitions, intervals, and sleep schedules."""
         errors = {}
         if user_input is not None:
             self._data.update(user_input)
@@ -196,11 +235,17 @@ class AdaptiveCircadianConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Required(CONF_MAX_BRIGHTNESS, default=DEFAULT_MAX_BRIGHTNESS): selector.NumberSelector(
                     selector.NumberSelectorConfig(min=1, max=100, step=1, unit_of_measurement="%")
                 ),
+                vol.Required(CONF_EVENING_MAX_BRIGHTNESS, default=DEFAULT_EVENING_MAX_BRIGHTNESS): selector.NumberSelector(
+                    selector.NumberSelectorConfig(min=0, max=100, step=5, unit_of_measurement="%")
+                ),
                 vol.Required(CONF_MIN_COLOR_TEMP, default=DEFAULT_MIN_COLOR_TEMP): selector.NumberSelector(
                     selector.NumberSelectorConfig(min=1000, max=4000, step=100, unit_of_measurement="K")
                 ),
                 vol.Required(CONF_MAX_COLOR_TEMP, default=DEFAULT_MAX_COLOR_TEMP): selector.NumberSelector(
                     selector.NumberSelectorConfig(min=3000, max=10000, step=100, unit_of_measurement="K")
+                ),
+                vol.Required(CONF_INTERVAL, default=DEFAULT_INTERVAL): selector.NumberSelector(
+                    selector.NumberSelectorConfig(min=10, max=300, step=5, unit_of_measurement="s")
                 ),
                 vol.Required(CONF_TRANSITION, default=DEFAULT_TRANSITION): selector.NumberSelector(
                     selector.NumberSelectorConfig(min=0.5, max=60, step=0.5, unit_of_measurement="s")
@@ -212,6 +257,15 @@ class AdaptiveCircadianConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Required(CONF_SLEEP_SCHEDULE_ENABLE, default=DEFAULT_SLEEP_SCHEDULE_ENABLE): bool,
                 vol.Required(CONF_SLEEP_START_TIME, default=DEFAULT_SLEEP_START_TIME): selector.TimeSelector(),
                 vol.Required(CONF_SLEEP_END_TIME, default=DEFAULT_SLEEP_END_TIME): selector.TimeSelector(),
+                vol.Required(CONF_SLEEP_BRIGHTNESS, default=DEFAULT_SLEEP_BRIGHTNESS): selector.NumberSelector(
+                    selector.NumberSelectorConfig(min=1, max=100, step=1, unit_of_measurement="%")
+                ),
+                vol.Required(CONF_SLEEP_COLOR_TEMP, default=DEFAULT_SLEEP_COLOR_TEMP): selector.NumberSelector(
+                    selector.NumberSelectorConfig(min=1000, max=4000, step=100, unit_of_measurement="K")
+                ),
+                vol.Required(CONF_SLEEP_WEEKEND_ENABLE, default=DEFAULT_SLEEP_WEEKEND_ENABLE): bool,
+                vol.Required(CONF_SLEEP_WEEKEND_START_TIME, default=DEFAULT_SLEEP_WEEKEND_START_TIME): selector.TimeSelector(),
+                vol.Required(CONF_SLEEP_WEEKEND_END_TIME, default=DEFAULT_SLEEP_WEEKEND_END_TIME): selector.TimeSelector(),
                 vol.Optional(CONF_SLEEP_ENTITY): selector.EntitySelector(
                     selector.EntitySelectorConfig(domain=["input_boolean", "binary_sensor"])
                 ),
@@ -264,6 +318,13 @@ class AdaptiveCircadianOptionsFlow(config_entries.OptionsFlow):
             vol.Required(CONF_COLOR_MODE, default=current.get(CONF_COLOR_MODE, DEFAULT_COLOR_MODE)): selector.SelectSelector(
                 selector.SelectSelectorConfig(options=COLOR_MODES, mode=selector.SelectSelectorMode.DROPDOWN)
             ),
+            vol.Required(CONF_ADAPT_ONLY_ON_BARE_TURN_ON, default=current.get(CONF_ADAPT_ONLY_ON_BARE_TURN_ON, DEFAULT_ADAPT_ONLY_ON_BARE_TURN_ON)): bool,
+            vol.Required(CONF_SUNRISE_OFFSET, default=current.get(CONF_SUNRISE_OFFSET, DEFAULT_SUNRISE_OFFSET)): selector.NumberSelector(
+                selector.NumberSelectorConfig(min=-120, max=120, step=5, unit_of_measurement="min")
+            ),
+            vol.Required(CONF_SUNSET_OFFSET, default=current.get(CONF_SUNSET_OFFSET, DEFAULT_SUNSET_OFFSET)): selector.NumberSelector(
+                selector.NumberSelectorConfig(min=-120, max=120, step=5, unit_of_measurement="min")
+            ),
             vol.Optional(CONF_WEATHER_ENTITY): selector.EntitySelector(
                 selector.EntitySelectorConfig(domain="weather")
             ),
@@ -276,11 +337,17 @@ class AdaptiveCircadianOptionsFlow(config_entries.OptionsFlow):
             vol.Required(CONF_MAX_BRIGHTNESS, default=current.get(CONF_MAX_BRIGHTNESS, DEFAULT_MAX_BRIGHTNESS)): selector.NumberSelector(
                 selector.NumberSelectorConfig(min=1, max=100, step=1, unit_of_measurement="%")
             ),
+            vol.Required(CONF_EVENING_MAX_BRIGHTNESS, default=current.get(CONF_EVENING_MAX_BRIGHTNESS, DEFAULT_EVENING_MAX_BRIGHTNESS)): selector.NumberSelector(
+                selector.NumberSelectorConfig(min=0, max=100, step=5, unit_of_measurement="%")
+            ),
             vol.Required(CONF_MIN_COLOR_TEMP, default=current.get(CONF_MIN_COLOR_TEMP, DEFAULT_MIN_COLOR_TEMP)): selector.NumberSelector(
                 selector.NumberSelectorConfig(min=1000, max=4000, step=100, unit_of_measurement="K")
             ),
             vol.Required(CONF_MAX_COLOR_TEMP, default=current.get(CONF_MAX_COLOR_TEMP, DEFAULT_MAX_COLOR_TEMP)): selector.NumberSelector(
                 selector.NumberSelectorConfig(min=3000, max=10000, step=100, unit_of_measurement="K")
+            ),
+            vol.Required(CONF_INTERVAL, default=current.get(CONF_INTERVAL, DEFAULT_INTERVAL)): selector.NumberSelector(
+                selector.NumberSelectorConfig(min=10, max=300, step=5, unit_of_measurement="s")
             ),
             vol.Required(CONF_OVERRIDE_TIMEOUT, default=current.get(CONF_OVERRIDE_TIMEOUT, DEFAULT_OVERRIDE_TIMEOUT)): selector.NumberSelector(
                 selector.NumberSelectorConfig(min=0, max=480, step=5, unit_of_measurement="min")
@@ -291,6 +358,13 @@ class AdaptiveCircadianOptionsFlow(config_entries.OptionsFlow):
                 selector.EntitySelectorConfig(domain="binary_sensor", multiple=True)
             ),
             vol.Required(CONF_AUTO_TURN_ON, default=current.get(CONF_AUTO_TURN_ON, DEFAULT_AUTO_TURN_ON)): bool,
+            vol.Required(CONF_SLEEP_MOTION_BEHAVIOR, default=current.get(CONF_SLEEP_MOTION_BEHAVIOR, DEFAULT_SLEEP_MOTION_BEHAVIOR)): selector.SelectSelector(
+                selector.SelectSelectorConfig(
+                    options=SLEEP_MOTION_BEHAVIORS,
+                    mode=selector.SelectSelectorMode.DROPDOWN,
+                    translation_key="sleep_motion_behaviors",
+                )
+            ),
             vol.Required(CONF_MOTION_DEBOUNCE, default=current.get(CONF_MOTION_DEBOUNCE, DEFAULT_MOTION_DEBOUNCE)): selector.NumberSelector(
                 selector.NumberSelectorConfig(min=0, max=180, step=5, unit_of_measurement="s")
             ),
@@ -312,6 +386,15 @@ class AdaptiveCircadianOptionsFlow(config_entries.OptionsFlow):
             vol.Required(CONF_SLEEP_SCHEDULE_ENABLE, default=current.get(CONF_SLEEP_SCHEDULE_ENABLE, DEFAULT_SLEEP_SCHEDULE_ENABLE)): bool,
             vol.Required(CONF_SLEEP_START_TIME, default=current.get(CONF_SLEEP_START_TIME, DEFAULT_SLEEP_START_TIME)): selector.TimeSelector(),
             vol.Required(CONF_SLEEP_END_TIME, default=current.get(CONF_SLEEP_END_TIME, DEFAULT_SLEEP_END_TIME)): selector.TimeSelector(),
+            vol.Required(CONF_SLEEP_BRIGHTNESS, default=current.get(CONF_SLEEP_BRIGHTNESS, DEFAULT_SLEEP_BRIGHTNESS)): selector.NumberSelector(
+                selector.NumberSelectorConfig(min=1, max=100, step=1, unit_of_measurement="%")
+            ),
+            vol.Required(CONF_SLEEP_COLOR_TEMP, default=current.get(CONF_SLEEP_COLOR_TEMP, DEFAULT_SLEEP_COLOR_TEMP)): selector.NumberSelector(
+                selector.NumberSelectorConfig(min=1000, max=4000, step=100, unit_of_measurement="K")
+            ),
+            vol.Required(CONF_SLEEP_WEEKEND_ENABLE, default=current.get(CONF_SLEEP_WEEKEND_ENABLE, DEFAULT_SLEEP_WEEKEND_ENABLE)): bool,
+            vol.Required(CONF_SLEEP_WEEKEND_START_TIME, default=current.get(CONF_SLEEP_WEEKEND_START_TIME, DEFAULT_SLEEP_WEEKEND_START_TIME)): selector.TimeSelector(),
+            vol.Required(CONF_SLEEP_WEEKEND_END_TIME, default=current.get(CONF_SLEEP_WEEKEND_END_TIME, DEFAULT_SLEEP_WEEKEND_END_TIME)): selector.TimeSelector(),
             vol.Optional(CONF_SLEEP_ENTITY): selector.EntitySelector(
                 selector.EntitySelectorConfig(domain=["input_boolean", "binary_sensor"])
             ),

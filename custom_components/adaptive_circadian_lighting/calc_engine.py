@@ -37,26 +37,34 @@ class SunCalculator:
         max_brightness: int = DEFAULT_MAX_BRIGHTNESS,
         min_kelvin: int = DEFAULT_MIN_COLOR_TEMP,
         max_kelvin: int = DEFAULT_MAX_COLOR_TEMP,
+        sunrise_offset: int = 0,
+        sunset_offset: int = 0,
     ) -> None:
         self.min_brightness = min_brightness
         self.max_brightness = max_brightness
         self.min_kelvin = min_kelvin
         self.max_kelvin = max_kelvin
+        self.sunrise_offset = sunrise_offset
+        self.sunset_offset = sunset_offset
 
     def calculate(self, solar_elevation: float) -> Tuple[int, int, str]:
         """Calculate target brightness, Kelvin and phase name based on sun elevation."""
+        # Shift elevation based on offset if applicable (~0.25 degrees elevation per minute)
+        offset = self.sunrise_offset if solar_elevation <= 15.0 else self.sunset_offset
+        effective_elevation = solar_elevation - (offset * 0.25)
+
         # Elevation ranges:
         # <= -18: Astronomical night
         # -18 to 0: Twilight / Dawn / Dusk
         # 0 to 60: Day
-        if solar_elevation <= -18.0:
+        if effective_elevation <= -18.0:
             return self.min_brightness, self.min_kelvin, "night"
 
-        if solar_elevation >= 60.0:
+        if effective_elevation >= 60.0:
             return self.max_brightness, self.max_kelvin, "day"
 
         # Normalize elevation between -18 (0.0) and 60 (1.0)
-        fraction = (solar_elevation + 18.0) / 78.0
+        fraction = (effective_elevation + 18.0) / 78.0
         fraction = max(0.0, min(1.0, fraction))
 
         factor = (1.0 - math.cos(fraction * math.pi)) / 2.0
@@ -64,9 +72,9 @@ class SunCalculator:
         brightness = int(round(self.min_brightness + factor * (self.max_brightness - self.min_brightness)))
         kelvin = int(round(self.min_kelvin + factor * (self.max_kelvin - self.min_kelvin)))
 
-        if solar_elevation < 0:
+        if effective_elevation < 0:
             phase = "twilight"
-        elif solar_elevation < 15:
+        elif effective_elevation < 15:
             phase = "golden_hour"
         else:
             phase = "day"
@@ -87,11 +95,15 @@ class HybridCalculator:
         max_sunrise: str = DEFAULT_MAX_SUNRISE,
         min_sunset: str = DEFAULT_MIN_SUNSET,
         max_sunset: str = DEFAULT_MAX_SUNSET,
+        sunrise_offset: int = 0,
+        sunset_offset: int = 0,
     ) -> None:
         self.min_brightness = min_brightness
         self.max_brightness = max_brightness
         self.min_kelvin = min_kelvin
         self.max_kelvin = max_kelvin
+        self.sunrise_offset = sunrise_offset
+        self.sunset_offset = sunset_offset
         self.min_sunrise = self._parse_time(min_sunrise)
         self.max_sunrise = self._parse_time(max_sunrise)
         self.min_sunset = self._parse_time(min_sunset)
@@ -108,13 +120,14 @@ class HybridCalculator:
         """Calculate values clamping astronomical position between target bounds."""
         current_time = now.hour + now.minute / 60.0 + now.second / 3600.0
 
-        # Anchor times:
-        # Morning transition from min_sunrise to max_sunrise
-        # Evening transition from min_sunset to max_sunset
-        t_wake_start = self.min_sunrise
-        t_day_full = self.max_sunrise
-        t_evening_start = self.min_sunset
-        t_night_full = self.max_sunset
+        # Anchor times adjusted for sunrise and sunset offsets in minutes:
+        offset_sunrise_h = self.sunrise_offset / 60.0
+        offset_sunset_h = self.sunset_offset / 60.0
+
+        t_wake_start = self.min_sunrise + offset_sunrise_h
+        t_day_full = self.max_sunrise + offset_sunrise_h
+        t_evening_start = self.min_sunset + offset_sunset_h
+        t_night_full = self.max_sunset + offset_sunset_h
 
         # Night phase
         if current_time < t_wake_start or current_time >= t_night_full:

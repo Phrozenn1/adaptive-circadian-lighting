@@ -14,7 +14,10 @@
         "description": "Selecciona cómo se calcula la curva y cómo se transmite el color a las luces.",
         "data": {
           "calc_mode": "Modo de Cálculo",
-          "color_mode": "Modo de Color"
+          "color_mode": "Modo de Color",
+          "adapt_only_on_bare_turn_on": "Adaptar solo al encender (estático mientras está encendido)",
+          "sunrise_offset": "Compensación de amanecer (minutos, +/-)",
+          "sunset_offset": "Compensación de atardecer (minutos, +/-)"
         }
       },
       "weather": {
@@ -34,6 +37,10 @@
         "data": {
           "presence_enable": "Activar automatización de presencia",
           "presence_sensors": "Sensores de Movimiento / Presencia",
+          "auto_turn_on": "Encender automáticamente con movimiento",
+          "sleep_motion_behavior": "Comportamiento del sensor en modo noche",
+          "motion_debounce": "Búfer de movimiento (segundos, para sensores Aqara)",
+          "turn_on_lux_threshold": "Umbral de luz diurna para encender (lux, 0 = siempre)",
           "dim_timeout": "Tiempo antes de atenuar (segundos sin movimiento)",
           "off_timeout": "Tiempo antes de apagar (segundos después de atenuar)",
           "grace_period": "Período de gracia (segundos para recordar ajustes manuales al volver)",
@@ -41,16 +48,27 @@
         }
       },
       "limits": {
-        "title": "Límites y Umbrales",
-        "description": "Establece los límites de brillo y temperatura de color.",
+        "title": "Límites, Intervalos y Modo Noche",
+        "description": "Establece límites de brillo, temperatura de color, intervalo y horario nocturno.",
         "data": {
           "min_brightness": "Brillo Mínimo (%)",
           "max_brightness": "Brillo Máximo (%)",
+          "evening_max_brightness": "Límite máximo de brillo nocturno (%, 0 = desactivado)",
           "min_color_temp": "Temperatura Mínima (Kelvin Cálido)",
           "max_color_temp": "Temperatura Máxima (Kelvin Frío)",
+          "interval": "Intervalo de actualización (segundos)",
           "transition": "Tiempo de Transición (segundos)",
-          "override_timeout": "Tiempo de anulación manual (minutos)",
-          "anti_glare": "Anti-deslumbramiento (evita encendidos bruscos por la noche)"
+          "override_timeout": "Tiempo de Anulación Manual (minutos)",
+          "anti_glare": "Anti-deslumbramiento al encender",
+          "sleep_schedule_enable": "Activar horario automático de modo noche",
+          "sleep_start_time": "Hora de inicio del modo noche",
+          "sleep_end_time": "Hora de fin del modo noche",
+          "sleep_brightness": "Brillo en modo noche (%)",
+          "sleep_color_temp": "Temperatura en modo noche (Kelvin)",
+          "sleep_weekend_enable": "Horario separado para fines de semana",
+          "sleep_weekend_start_time": "Fin de semana: Inicio modo noche",
+          "sleep_weekend_end_time": "Fin de semana: Fin modo noche",
+          "sleep_entity": "Sensor o interruptor de sueño externo (Opcional)"
         }
       }
     }
@@ -58,20 +76,44 @@
   "options": {
     "step": {
       "init": {
-        "title": "Configuración de Luz Circadiana Adaptativa",
-        "description": "Ajusta luces, límites, clima y modos.",
+        "title": "Ajustes de Luz Circadiana Adaptativa",
+        "description": "Configura luces, límites, clima, presencia e intervalos.",
         "data": {
           "lights": "Luces",
           "calc_mode": "Modo de Cálculo",
           "color_mode": "Modo de Color",
-          "weather_entity": "Entidad Meteorológica",
-          "lux_sensor": "Sensor de Iluminancia (Lux)",
+          "adapt_only_on_bare_turn_on": "Adaptar solo al encender (estático mientras está encendido)",
+          "sunrise_offset": "Compensación amanecer (minutos, +/-)",
+          "sunset_offset": "Compensación atardecer (minutos, +/-)",
+          "weather_entity": "Entidad meteorológica",
+          "lux_sensor": "Sensor de lux",
           "min_brightness": "Brillo Mínimo (%)",
           "max_brightness": "Brillo Máximo (%)",
-          "min_color_temp": "Temperatura Mínima (Kelvin)",
-          "max_color_temp": "Temperatura Máxima (Kelvin)",
+          "evening_max_brightness": "Límite máximo nocturno (%, 0 = desactivado)",
+          "min_color_temp": "Temperatura Mínima (Kelvin Cálido)",
+          "max_color_temp": "Temperatura Máxima (Kelvin Frío)",
+          "interval": "Intervalo de actualización (segundos)",
           "override_timeout": "Tiempo de anulación manual (minutos)",
-          "anti_glare": "Anti-deslumbramiento"
+          "anti_glare": "Anti-deslumbramiento",
+          "presence_enable": "Activar detección de presencia",
+          "presence_sensors": "Sensores de presencia",
+          "auto_turn_on": "Encender automáticamente con movimiento",
+          "sleep_motion_behavior": "Comportamiento en modo noche",
+          "motion_debounce": "Búfer de movimiento (segundos)",
+          "turn_on_lux_threshold": "Umbral de luz diurna (lux)",
+          "dim_timeout": "Tiempo de atenuación (segundos)",
+          "off_timeout": "Tiempo de apagado (segundos)",
+          "grace_period": "Período de gracia (segundos)",
+          "dim_brightness": "Nivel de brillo atenuado (%)",
+          "sleep_schedule_enable": "Activar horario de modo noche",
+          "sleep_start_time": "Inicio de modo noche",
+          "sleep_end_time": "Fin de modo noche",
+          "sleep_brightness": "Brillo modo noche (%)",
+          "sleep_color_temp": "Temperatura modo noche (Kelvin)",
+          "sleep_weekend_enable": "Horario de fin de semana",
+          "sleep_weekend_start_time": "Fin de semana: Inicio modo noche",
+          "sleep_weekend_end_time": "Fin de semana: Fin modo noche",
+          "sleep_entity": "Sensor externo de sueño"
         }
       }
     }
@@ -79,38 +121,44 @@
   "entity": {
     "switch": {
       "adaptation": { "name": "Adaptación" },
-      "adapt_brightness": { "name": "Adaptar brillo" },
-      "adapt_color": { "name": "Adaptar color" },
-      "sleep_mode": { "name": "Modo noche" }
+      "adapt_brightness": { "name": "Adaptar Brillo" },
+      "adapt_color": { "name": "Adaptar Color" },
+      "sleep_mode": { "name": "Modo Noche" }
     },
     "select": {
       "profile": { "name": "Perfil" },
-      "calc_mode": { "name": "Modo de cálculo" },
-      "color_mode": { "name": "Modo de color" }
+      "calc_mode": { "name": "Modo de Cálculo" },
+      "color_mode": { "name": "Modo de Color" }
     },
     "sensor": {
-      "target_brightness": { "name": "Brillo objetivo" },
-      "target_color_temp": { "name": "Temperatura de color objetivo" },
-      "phase": { "name": "Fase circadiana" },
-      "weather_boost": { "name": "Compensación climática" },
-      "manual_overrides": { "name": "Anulaciones manuales" },
-      "presence_state": { "name": "Estado de presencia" }
+      "target_brightness": { "name": "Brillo Objetivo" },
+      "target_color_temp": { "name": "Temperatura Objetivo" },
+      "phase": { "name": "Fase Circadiana" },
+      "weather_boost": { "name": "Compensación Clima" },
+      "manual_overrides": { "name": "Anulaciones Manuales" },
+      "presence_state": { "name": "Estado de Presencia" }
     }
   },
   "selector": {
     "calc_modes": {
       "options": {
-        "sun": "Posición Solar Pura (Astral)",
-        "hybrid": "Híbrido (Sol con Anclas de Tiempo Fijas)",
-        "curve": "Curva 24h Personalizada (Spline)",
-        "lux": "Compensado por Clima / Lux"
+        "sun": "Posición Solar Astronómica",
+        "hybrid": "Híbrido (Sol con Anclas Horarias)",
+        "curve": "Curva 24h Personalizada",
+        "lux": "Compensado por Clima y Lux"
       }
     },
     "color_modes": {
       "options": {
         "kelvin": "Temperatura de Color (Kelvin)",
         "rgb": "Color RGB",
-        "auto": "Auto / Híbrido (Kelvin de día, RGB profundo de noche)"
+        "auto": "Automático / Híbrido (Kelvin de día, RGB profundo de noche)"
+      }
+    },
+    "sleep_motion_behaviors": {
+      "options": {
+        "nightlight": "Luz nocturna (encender con ajustes de modo noche)",
+        "dnd": "No molestar (ignorar movimiento, mantener apagado)"
       }
     }
   }

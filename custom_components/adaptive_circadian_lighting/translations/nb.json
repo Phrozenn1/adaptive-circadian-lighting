@@ -14,7 +14,10 @@
         "description": "Velg hvordan døgnkurven skal beregnes og hvordan farge sendes til lampene.",
         "data": {
           "calc_mode": "Beregningsmodell",
-          "color_mode": "Fargemodus"
+          "color_mode": "Fargemodus",
+          "adapt_only_on_bare_turn_on": "Kun tilpass ved tenning (statisk mens på)",
+          "sunrise_offset": "Soloppgang-forskyvning (minutter, +/-)",
+          "sunset_offset": "Solnedgang-forskyvning (minutter, +/-)"
         }
       },
       "weather": {
@@ -35,32 +38,36 @@
           "presence_enable": "Aktiver bevegelsesstyring",
           "presence_sensors": "Bevegelses- / Tilstedeværelsessensorer (Aqara, mmWave, etc.)",
           "auto_turn_on": "Slå på lys automatisk ved registrert bevegelse",
+          "sleep_motion_behavior": "Bevegelsesoppførsel i nattmodus",
           "motion_debounce": "Bevegelses-buffer (sekunder, hindrer at lyset dimmer for raskt på Aqara-sensor)",
           "turn_on_lux_threshold": "Dagslysgrense for automatisk påslåing (lux, 0 = alltid på)",
           "dim_timeout": "Dimmetid (sekunder uten bevegelse før dimming)",
           "off_timeout": "Av-tid (sekunder etter dimming før lyset slås helt av)",
           "grace_period": "Grace-periode (sekunder manuell innstilling huskes ved kort fravær)",
-          "dim_brightness": "Dimmet lysstyrke (%)",
-          "sleep_schedule_enable": "Aktiver automatisk nattmodus-tidsplan",
-          "sleep_start_time": "Start nattmodus (klokkeslett)",
-          "sleep_end_time": "Avslutt nattmodus (klokkeslett)",
-          "sleep_entity": "Ekstern søvnsensor eller hjelper (valgfri)"
+          "dim_brightness": "Dimmet lysstyrke (%)"
         }
       },
       "limits": {
-        "title": "Grenseverdier og Overganger",
-        "description": "Angi min/maks lysstyrke og fargetemperatur samt overgangstider.",
+        "title": "Grenseverdier, Intervaller og Søvn",
+        "description": "Angi min/maks lysstyrke, fargetemperatur, tidsintervall og nattplan.",
         "data": {
           "min_brightness": "Minimum lysstyrke (%)",
           "max_brightness": "Maksimum lysstyrke (%)",
+          "evening_max_brightness": "Maks lysstyrke om kvelden/natten (%, 0 = deaktivert)",
           "min_color_temp": "Varmeste fargetemperatur (Kelvin)",
           "max_color_temp": "Kaldeste fargetemperatur (Kelvin)",
+          "interval": "Oppdateringsintervall (sekunder)",
           "transition": "Overgangstid (sekunder)",
           "override_timeout": "Tidsavbrudd for manuell overstyring (minutter)",
           "anti_glare": "Anti-blending (hindrer sjokkblits ved natt-innkobling)",
           "sleep_schedule_enable": "Aktiver automatisk nattmodus-tidsplan",
           "sleep_start_time": "Start nattmodus (klokkeslett)",
           "sleep_end_time": "Avslutt nattmodus (klokkeslett)",
+          "sleep_brightness": "Nattmodus lysstyrke (%)",
+          "sleep_color_temp": "Nattmodus fargetemperatur (Kelvin)",
+          "sleep_weekend_enable": "Egen nattplan for helg (fre/lør kveld, lør/søn morgen)",
+          "sleep_weekend_start_time": "Helg: Start nattmodus (klokkeslett)",
+          "sleep_weekend_end_time": "Helg: Avslutt nattmodus (klokkeslett)",
           "sleep_entity": "Ekstern søvnsensor eller hjelper (valgfri)"
         }
       }
@@ -70,22 +77,28 @@
     "step": {
       "init": {
         "title": "Innstillinger for Adaptiv Døgnrytmelys",
-        "description": "Juster lamper, grenseverdier, vær og moduser.",
+        "description": "Juster lamper, grenseverdier, vær, bevegelse, intervaller og søvnplan.",
         "data": {
           "lights": "Lamper",
           "calc_mode": "Beregningsmodell",
           "color_mode": "Fargemodus",
+          "adapt_only_on_bare_turn_on": "Kun tilpass ved tenning (statisk mens på)",
+          "sunrise_offset": "Soloppgang-forskyvning (minutter, +/-)",
+          "sunset_offset": "Solnedgang-forskyvning (minutter, +/-)",
           "weather_entity": "Værentitet",
           "lux_sensor": "Lysmåler (Lux-sensor)",
           "min_brightness": "Minimum lysstyrke (%)",
           "max_brightness": "Maksimum lysstyrke (%)",
+          "evening_max_brightness": "Maks lysstyrke om kvelden/natten (%, 0 = deaktivert)",
           "min_color_temp": "Varmeste fargetemperatur (Kelvin)",
           "max_color_temp": "Kaldeste fargetemperatur (Kelvin)",
+          "interval": "Oppdateringsintervall (sekunder)",
           "override_timeout": "Tidsavbrudd for manuell overstyring (minutter)",
           "anti_glare": "Anti-blending (hindrer sjokkblits ved natt-innkobling)",
           "presence_enable": "Aktiver bevegelsesstyring",
           "presence_sensors": "Bevegelses- / Tilstedeværelsessensorer (Aqara, mmWave, etc.)",
           "auto_turn_on": "Slå på lys automatisk ved bevegelse",
+          "sleep_motion_behavior": "Bevegelsesoppførsel i nattmodus",
           "motion_debounce": "Bevegelses-buffer (sekunder, hindrer for rask dimming på Aqara)",
           "turn_on_lux_threshold": "Dagslysgrense for automatisk påslåing (lux, 0 = alltid)",
           "dim_timeout": "Dimmetid (sekunder uten bevegelse før dimming)",
@@ -95,6 +108,11 @@
           "sleep_schedule_enable": "Aktiver automatisk nattmodus-tidsplan",
           "sleep_start_time": "Start nattmodus (klokkeslett)",
           "sleep_end_time": "Avslutt nattmodus (klokkeslett)",
+          "sleep_brightness": "Nattmodus lysstyrke (%)",
+          "sleep_color_temp": "Nattmodus fargetemperatur (Kelvin)",
+          "sleep_weekend_enable": "Egen nattplan for helg (fre/lør kveld, lør/søn morgen)",
+          "sleep_weekend_start_time": "Helg: Start nattmodus (klokkeslett)",
+          "sleep_weekend_end_time": "Helg: Avslutt nattmodus (klokkeslett)",
           "sleep_entity": "Ekstern søvnsensor eller hjelper (valgfri)"
         }
       }
@@ -135,6 +153,12 @@
         "kelvin": "Fargetemperatur (Kelvin)",
         "rgb": "RGB-farge",
         "auto": "Auto / Hybrid (Kelvin om dagen, dyp RGB om natten)"
+      }
+    },
+    "sleep_motion_behaviors": {
+      "options": {
+        "nightlight": "Nattbelysning (slå på med nattmodus-innstillinger)",
+        "dnd": "Ikke forstyrr (ignorer bevegelse, behold lyset av)"
       }
     }
   }

@@ -2,7 +2,7 @@
   "config": {
     "step": {
       "user": {
-        "title": "Iluminação Circadiana Adaptativa - Configuração de Cômodo",
+        "title": "Iluminação Circadiana Adaptativa - Configuração",
         "description": "Configure uma nova zona de iluminação circadiana.",
         "data": {
           "name": "Nome do Cômodo / Zona",
@@ -10,47 +10,65 @@
         }
       },
       "modes": {
-        "title": "Modo de Cálculo e Modo de Cor",
-        "description": "Selecione como a curva é calculada e como a cor é enviada para as lâmpadas.",
+        "title": "Modelo de Cálculo e Modo de Cor",
+        "description": "Escolha como a curva é calculada e como a cor é enviada para as luzes.",
         "data": {
-          "calc_mode": "Modo de Cálculo",
-          "color_mode": "Modo de Cor"
+          "calc_mode": "Modelo de Cálculo",
+          "color_mode": "Modo de Cor",
+          "adapt_only_on_bare_turn_on": "Adaptar apenas ao ligar (estático enquanto aceso)",
+          "sunrise_offset": "Ajuste do nascer do sol (minutos, +/-)",
+          "sunset_offset": "Ajuste do pôr do sol (minutos, +/-)"
         }
       },
       "weather": {
         "title": "Compensação de Clima e Lux",
-        "description": "Compense dias nublados e chuvosos através da previsão do tempo ou de um sensor físico de lux.",
+        "description": "Compensa dias nublados usando a previsão do tempo ou sensor de lux.",
         "data": {
-          "weather_entity": "Entidade de Clima",
-          "lux_sensor": "Sensor de Iluminância (Lux)",
-          "prioritize_lux": "Priorizar sensor de lux físico sobre a previsão",
-          "cloud_boost_pct": "Aumento de brilho por nuvens (+%)",
-          "cloud_boost_kelvin": "Aumento de temperatura por nuvens (+K)"
+          "weather_entity": "Entidade meteorológica",
+          "lux_sensor": "Sensor de iluminância (Lux)",
+          "prioritize_lux": "Priorizar sensor de lux físico",
+          "cloud_boost_pct": "Boost de nuvens no brilho (+%)",
+          "cloud_boost_kelvin": "Boost de nuvens na temperatura (+K)"
         }
       },
       "presence": {
-        "title": "Presença e Automação de Movimento",
-        "description": "Diminui e desliga automaticamente as lâmpadas quando o cômodo está vazio, com memória para ajustes manuais.",
+        "title": "Automação de Presença e Movimento",
+        "description": "Dimerização em 2 fases e desligamento automático, com memória de ajustes manuais.",
         "data": {
-          "presence_enable": "Ativar automação de presença",
-          "presence_sensors": "Sensores de Movimento / Presença",
-          "dim_timeout": "Tempo antes de diminuir (segundos sem movimento)",
-          "off_timeout": "Tempo antes de desligar (segundos após diminuir)",
-          "grace_period": "Período de tolerância (segundos para restaurar ajustes manuais ao retornar)",
-          "dim_brightness": "Nível de brilho diminuído (%)"
+          "presence_enable": "Ativar detecção de presença",
+          "presence_sensors": "Sensores de movimento / presença",
+          "auto_turn_on": "Ligar automaticamente com movimento",
+          "sleep_motion_behavior": "Comportamento no modo noturno",
+          "motion_debounce": "Buffer de movimento (segundos, para sensores Aqara)",
+          "turn_on_lux_threshold": "Limite de luz diurna para ligar (lux)",
+          "dim_timeout": "Tempo antes de dimerizar (segundos)",
+          "off_timeout": "Tempo antes de desligar (segundos)",
+          "grace_period": "Período de tolerância (segundos)",
+          "dim_brightness": "Nível de brilho dimerizado (%)"
         }
       },
       "limits": {
-        "title": "Limites e Limiares",
-        "description": "Defina os limites de brilho e temperatura de cor.",
+        "title": "Limites, Intervalos e Modo Noturno",
+        "description": "Defina limites de brilho, temperatura, intervalo e horários de descanso.",
         "data": {
-          "min_brightness": "Brilho Mínimo (%)",
-          "max_brightness": "Brilho Máximo (%)",
-          "min_color_temp": "Temperatura Mínima (Kelvin Quente)",
-          "max_color_temp": "Temperatura Máxima (Kelvin Frio)",
-          "transition": "Tempo de Transição (segundos)",
-          "override_timeout": "Tempo limite de sobreposição manual (minutos)",
-          "anti_glare": "Anti-ofuscamento (evita clarão ao ligar à noite)"
+          "min_brightness": "Brilho mínimo (%)",
+          "max_brightness": "Brilho máximo (%)",
+          "evening_max_brightness": "Brilho máximo noturno (%, 0 = desativado)",
+          "min_color_temp": "Temperatura mínima (Kelvin quente)",
+          "max_color_temp": "Temperatura máxima (Kelvin frio)",
+          "interval": "Intervalo de atualização (segundos)",
+          "transition": "Tempo de transição (segundos)",
+          "override_timeout": "Tempo de sobreposição manual (minutos)",
+          "anti_glare": "Anti-ofuscamento ao ligar",
+          "sleep_schedule_enable": "Ativar horário automático de modo noturno",
+          "sleep_start_time": "Hora de início do modo noturno",
+          "sleep_end_time": "Hora de fim do modo noturno",
+          "sleep_brightness": "Brilho do modo noturno (%)",
+          "sleep_color_temp": "Temperatura do modo noturno (Kelvin)",
+          "sleep_weekend_enable": "Horário separado para fim de semana",
+          "sleep_weekend_start_time": "Fim de semana: Início modo noturno",
+          "sleep_weekend_end_time": "Fim de semana: Fim modo noturno",
+          "sleep_entity": "Sensor externo de sono"
         }
       }
     }
@@ -58,20 +76,44 @@
   "options": {
     "step": {
       "init": {
-        "title": "Configurações de Iluminação Circadiana Adaptativa",
-        "description": "Ajuste lâmpadas, limites, clima e modos.",
+        "title": "Configurações de Iluminação Adaptativa",
+        "description": "Ajuste lâmpadas, limites, clima, presença e intervalos.",
         "data": {
           "lights": "Lâmpadas",
-          "calc_mode": "Modo de Cálculo",
+          "calc_mode": "Modelo de Cálculo",
           "color_mode": "Modo de Cor",
-          "weather_entity": "Entidade de Clima",
-          "lux_sensor": "Sensor de Iluminância (Lux)",
-          "min_brightness": "Brilho Mínimo (%)",
-          "max_brightness": "Brilho Máximo (%)",
-          "min_color_temp": "Temperatura Mínima (Kelvin)",
-          "max_color_temp": "Temperatura Máxima (Kelvin)",
-          "override_timeout": "Tempo limite de sobreposição manual (minutos)",
-          "anti_glare": "Anti-ofuscamento"
+          "adapt_only_on_bare_turn_on": "Adaptar apenas ao ligar",
+          "sunrise_offset": "Ajuste do nascer do sol (minutos)",
+          "sunset_offset": "Ajuste do pôr do sol (minutos)",
+          "weather_entity": "Entidade meteorológica",
+          "lux_sensor": "Sensor de lux",
+          "min_brightness": "Brilho mínimo (%)",
+          "max_brightness": "Brilho máximo (%)",
+          "evening_max_brightness": "Brilho máximo noturno (%, 0 = desligado)",
+          "min_color_temp": "Temperatura mínima (Kelvin)",
+          "max_color_temp": "Temperatura máxima (Kelvin)",
+          "interval": "Intervalo de atualização (segundos)",
+          "override_timeout": "Tempo de sobreposição (minutos)",
+          "anti_glare": "Anti-ofuscamento",
+          "presence_enable": "Ativar presença",
+          "presence_sensors": "Sensores",
+          "auto_turn_on": "Ligar com movimento",
+          "sleep_motion_behavior": "Comportamento no modo noturno",
+          "motion_debounce": "Buffer de movimento (segundos)",
+          "turn_on_lux_threshold": "Limite de luz diurna (lux)",
+          "dim_timeout": "Tempo até dimerizar (segundos)",
+          "off_timeout": "Tempo até desligar (segundos)",
+          "grace_period": "Período de tolerância (segundos)",
+          "dim_brightness": "Nível dimerizado (%)",
+          "sleep_schedule_enable": "Ativar horário de modo noturno",
+          "sleep_start_time": "Início modo noturno",
+          "sleep_end_time": "Fim modo noturno",
+          "sleep_brightness": "Brilho modo noturno (%)",
+          "sleep_color_temp": "Temperatura modo noturno (Kelvin)",
+          "sleep_weekend_enable": "Horário de fim de semana",
+          "sleep_weekend_start_time": "Fim de semana início",
+          "sleep_weekend_end_time": "Fim de semana fim",
+          "sleep_entity": "Sensor externo de sono"
         }
       }
     }
@@ -79,38 +121,44 @@
   "entity": {
     "switch": {
       "adaptation": { "name": "Adaptação" },
-      "adapt_brightness": { "name": "Adaptar brilho" },
-      "adapt_color": { "name": "Adaptar cor" },
-      "sleep_mode": { "name": "Modo noturno" }
+      "adapt_brightness": { "name": "Adaptar Brilho" },
+      "adapt_color": { "name": "Adaptar Cor" },
+      "sleep_mode": { "name": "Modo Noturno" }
     },
     "select": {
       "profile": { "name": "Perfil" },
-      "calc_mode": { "name": "Modo de cálculo" },
-      "color_mode": { "name": "Modo de cor" }
+      "calc_mode": { "name": "Modelo de Cálculo" },
+      "color_mode": { "name": "Modo de Cor" }
     },
     "sensor": {
-      "target_brightness": { "name": "Brilho alvo" },
-      "target_color_temp": { "name": "Temperatura de cor alvo" },
-      "phase": { "name": "Fase circadiana" },
-      "weather_boost": { "name": "Compensação climática" },
-      "manual_overrides": { "name": "Sobreposições manuais" },
-      "presence_state": { "name": "Estado de presença" }
+      "target_brightness": { "name": "Brilho Alvo" },
+      "target_color_temp": { "name": "Temperatura Alvo" },
+      "phase": { "name": "Fase Circadiana" },
+      "weather_boost": { "name": "Boost de Clima" },
+      "manual_overrides": { "name": "Sobreposições Manuais" },
+      "presence_state": { "name": "Estado de Presença" }
     }
   },
   "selector": {
     "calc_modes": {
       "options": {
-        "sun": "Posição Solar Pura (Astral)",
+        "sun": "Posição Solar Astronômica",
         "hybrid": "Híbrido (Sol com Horários Fixos)",
-        "curve": "Curva 24h Personalizada (Spline)",
-        "lux": "Compensado por Clima / Lux"
+        "curve": "Curva 24h Personalizada",
+        "lux": "Compensado por Clima e Lux"
       }
     },
     "color_modes": {
       "options": {
         "kelvin": "Temperatura de Cor (Kelvin)",
         "rgb": "Cor RGB",
-        "auto": "Auto / Híbrido (Kelvin de dia, RGB profundo de noite)"
+        "auto": "Automático / Híbrido (Kelvin de dia, RGB profundo à noite)"
+      }
+    },
+    "sleep_motion_behaviors": {
+      "options": {
+        "nightlight": "Luz noturna (ligar com definições de modo noturno)",
+        "dnd": "Não perturbe (ignorar movimento, manter luz apagada)"
       }
     }
   }

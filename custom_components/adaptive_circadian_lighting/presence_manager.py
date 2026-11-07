@@ -16,7 +16,9 @@ from .const import (
     DEFAULT_GRACE_PERIOD,
     DEFAULT_MOTION_DEBOUNCE,
     DEFAULT_OFF_TIMEOUT,
+    DEFAULT_SLEEP_MOTION_BEHAVIOR,
     DEFAULT_TURN_ON_LUX_THRESHOLD,
+    SLEEP_MOTION_DND,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -45,6 +47,8 @@ class PresenceManager:
         auto_turn_on: bool = DEFAULT_AUTO_TURN_ON,
         turn_on_lux_threshold: int = DEFAULT_TURN_ON_LUX_THRESHOLD,
         motion_debounce: int = DEFAULT_MOTION_DEBOUNCE,
+        sleep_motion_behavior: str = DEFAULT_SLEEP_MOTION_BEHAVIOR,
+        is_sleep_callback: Optional[Callable[[], bool]] = None,
         on_dim_callback: Optional[Callable[[], Any]] = None,
         on_off_callback: Optional[Callable[[], Any]] = None,
         on_restore_manual_callback: Optional[Callable[[Dict[str, Any]], Any]] = None,
@@ -59,6 +63,8 @@ class PresenceManager:
         self.auto_turn_on = auto_turn_on
         self.turn_on_lux_threshold = turn_on_lux_threshold
         self.motion_debounce = motion_debounce
+        self.sleep_motion_behavior = sleep_motion_behavior
+        self.is_sleep_callback = is_sleep_callback
 
         self.on_dim_callback = on_dim_callback
         self.on_off_callback = on_off_callback
@@ -207,6 +213,15 @@ class PresenceManager:
     def _handle_reoccupancy(self, now: datetime) -> None:
         """Handle person returning to the room."""
         self.room_state = STATE_OCCUPIED
+
+        # Check if room is in Sleep Mode and DND is active (ignore motion)
+        if self.is_sleep_callback and self.is_sleep_callback():
+            if self.sleep_motion_behavior == SLEEP_MOTION_DND:
+                _LOGGER.info(
+                    "PresenceManager: motion detected but Sleep Mode DND is active. Ignoring motion turn-on."
+                )
+                return
+
         within_grace = False
         if self.last_turned_off_time is not None:
             elapsed = (now - self.last_turned_off_time).total_seconds()

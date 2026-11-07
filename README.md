@@ -49,12 +49,20 @@ The integration, options flow, entities, and UI cards automatically adapt to you
   - *Turn-Off Phase:* Completely powers off lights after an additional timeout (e.g. 2 minutes).
 - **Grace Period (Short Departures):** If someone leaves temporarily (e.g. to fetch a coffee) and returns within the grace window (e.g. 15 minutes), **their manual lighting setting is immediately restored**! Beyond the grace period, lights cleanly turn back on with adaptive circadian lighting.
 
-### 5. Automated Sleep Schedule & Bedtime Sensor
+### 5. Automated Sleep Schedule & Weekend Support
 - **Built-in Schedule:** Automatically activates Sleep Mode during your preferred bedtime window (e.g. 23:00 to 06:30) and seamlessly transitions back to normal circadian lighting in the morning, eliminating the need for extra Home Assistant automations.
-- **Midnight Wrap-Around:** Fully supports schedules spanning across midnight.
+- **Separate Weekend Schedule:** Configure different bedtimes and wake-up times for weekends (Friday/Saturday evening and Saturday/Sunday morning).
+- **Room-Specific Sleep Settings:** Customize sleep brightness (e.g. 1% in the bedroom vs. 8% in the hallway/kitchen) and color temperature (e.g. 1800K or deep red RGB) individually for each room.
+- **Sleep Motion Behavior:** Choose whether motion sensors turn on soft nightlights or remain in Do Not Disturb (DND) mode during sleep hours.
 - **External Bedtime Sensor:** Link optional sleep tracking sensors (e.g. `input_boolean.sleep_mode`, phone charger, or smart mattress) to dynamically synchronize Sleep Mode.
 
-### 6. Interactive GUI & Lovelace Card
+### 6. Fine-Tuned Solar & Operational Controls
+- **Sunrise & Sunset Offsets:** Shift morning ramp and evening wind-down (+/- 120 minutes) to account for terrain, surrounding buildings, or blinds.
+- **Adapt Only on Turn-On:** Optional mode where lights adapt only when powered on, remaining completely static while on to prevent distracting gradual shifts during movie nights or focused work.
+- **Evening Brightness Cap:** Hard ceiling on maximum allowable brightness in the evening/night regardless of daylight.
+- **Configurable Interval:** Set update frequency anywhere from 10 to 300 seconds (default 60s) to balance responsiveness with Zigbee/Z-Wave mesh traffic.
+
+### 7. Interactive GUI & Lovelace Card
 - **Lovelace Custom Card (`adaptive-circadian-card`):**
   - Interactive SVG 24h curve with day/night zones and live "NOW" indicator.
   - One-click profile chips: `Normal`, `Sleep`, `Morning`, `Evening`, `Focus`, `Relax`.
@@ -128,7 +136,10 @@ python3 -m unittest discover tests
 - **Hybrid solmodell:** Aldri fullt dagslys før kl. 06:30, og garantert kveldslys senest 21:30 selv om sommeren.
 - **Værkompensering (Cloud Boost):** Henter værdata fra `weather.*` og øker automatisk lysstyrken (+25 %) på mørke og overskyede dager.
 - **Bevegelsessensor med minne:** Lyset dimmes i 2 trinn når rommet er tomt, og husker manuelle innstillinger dersom du forlater rommet en kort stund (f.eks. henter en kaffe).
-- **Innebygd Tidsplan for Nattmodus:** Angi faste klokkeslett for nattmodus (f.eks. 23:00 til 06:30) og koble eventuelt til en søvnsensor, helt uten å måtte opprette egne automasjoner i Home Assistant.
+- **Innebygd Tidsplan for Nattmodus:** Angi faste klokkeslett for nattmodus (f.eks. 23:00 til 06:30) med egen helgeplan, romspesifikk nattstyrke (f.eks. 1 % på soverom vs. 8 % på kjøkken) og «Ikke forstyrr»-valg for bevegelsessensorer.
+- **Soloppgang- og solnedgangsforskyvning:** Juster kurven med +/- minutter tilpasset lokale lysforhold og nabobygg.
+- **Kun tilpass ved tenning:** La lyset forbli statisk etter tenning for å unngå forstyrrende lysendringer under filmer eller måltider.
+- **Kveldsgrense for lysstyrke:** Sett et automatisk tak på lysstyrke om kvelden og natten.
 - **Anti-blending:** Pærer tennes direkte i dempet nattlys uten sjokkblits.
 - **Innebygd GUI:** Interaktivt Lovelace Dashboard-kort og dedikert sidepanel i Home Assistant.
 </details>
