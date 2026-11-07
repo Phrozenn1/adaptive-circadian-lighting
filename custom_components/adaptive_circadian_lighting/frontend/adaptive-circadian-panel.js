@@ -116,6 +116,14 @@ class AdaptiveCircadianPanel extends HTMLElement {
     this._render();
   }
 
+  set panel(panel) {
+    this._panel = panel;
+  }
+
+  set narrow(narrow) {
+    this._narrow = narrow;
+  }
+
   _getLang() {
     const lang = (this._hass?.locale?.language || this._hass?.language || "en").substring(0, 2).toLowerCase();
     return PANEL_I18N[lang] || PANEL_I18N.en;

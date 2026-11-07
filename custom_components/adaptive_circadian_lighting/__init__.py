@@ -48,7 +48,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     await _async_register_lovelace_card(hass)
 
     # 3. Register the Custom Sidebar Panel
-    _async_register_panel(hass)
+    await _async_register_panel(hass)
 
     # 4. Register global services
     _register_services(hass)
@@ -58,6 +58,9 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up an instance from a config entry."""
+    # Ensure static paths and panel are registered
+    await async_setup(hass, {})
+
     coordinator = AdaptiveCoordinator(hass, entry)
     await coordinator.async_setup()
 
@@ -110,26 +113,22 @@ async def _async_register_lovelace_card(hass: HomeAssistant) -> None:
         _LOGGER.warning("Could not automatically register Lovelace resource: %s", err)
 
 
-def _async_register_panel(hass: HomeAssistant) -> None:
+async def _async_register_panel(hass: HomeAssistant) -> None:
     """Register custom sidebar panel in Home Assistant."""
     try:
-        if hasattr(hass.components.frontend, "async_register_built_in_panel"):
-            hass.components.frontend.async_register_built_in_panel(
-                component_name="custom",
-                sidebar_title="Adaptive Light",
-                sidebar_icon="mdi:sun-clock",
-                frontend_url_path="adaptive-circadian",
-                config={
-                    "_panel_custom": {
-                        "name": "adaptive-circadian-panel",
-                        "module_url": f"{FRONTEND_URL}/{PANEL_FILENAME}",
-                    }
-                },
-                require_admin=False,
-            )
-            _LOGGER.info("Registered Adaptive Circadian sidebar panel.")
+        from homeassistant.components.panel_custom import async_register_panel
+        await async_register_panel(
+            hass,
+            frontend_url_path="adaptive-circadian",
+            webcomponent_name="adaptive-circadian-panel",
+            sidebar_title="Adaptive Light",
+            sidebar_icon="mdi:sun-clock",
+            module_url=f"{FRONTEND_URL}/{PANEL_FILENAME}",
+            require_admin=False,
+        )
+        _LOGGER.info("Registered Adaptive Circadian sidebar panel via panel_custom.")
     except Exception as err:
-        _LOGGER.debug("Note: Could not register sidebar panel (optional): %s", err)
+        _LOGGER.warning("Could not register sidebar panel via panel_custom: %s", err)
 
 
 def _register_services(hass: HomeAssistant) -> None:

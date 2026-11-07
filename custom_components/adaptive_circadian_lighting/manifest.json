@@ -5,7 +5,7 @@
   "codeowners": ["@Phrozenn1"],
   "config_flow": true,
   "documentation": "https://github.com/Phrozenn1/adaptive-circadian-lighting",
-  "dependencies": ["frontend", "http"],
+  "dependencies": ["frontend", "http", "panel_custom"],
   "iot_class": "calculated",
   "requirements": []
 }
