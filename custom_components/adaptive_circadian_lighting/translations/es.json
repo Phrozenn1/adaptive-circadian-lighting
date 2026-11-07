@@ -65,6 +65,7 @@
           "sleep_end_time": "Hora de fin del modo noche",
           "sleep_brightness": "Brillo en modo noche (%)",
           "sleep_color_temp": "Temperatura en modo noche (Kelvin)",
+          "sleep_rgb": "Color RGB en modo noche (selector de color / caja RGB)",
           "sleep_weekend_enable": "Horario separado para fines de semana",
           "sleep_weekend_start_time": "Fin de semana: Inicio modo noche",
           "sleep_weekend_end_time": "Fin de semana: Fin modo noche",
@@ -110,6 +111,7 @@
           "sleep_end_time": "Fin de modo noche",
           "sleep_brightness": "Brillo modo noche (%)",
           "sleep_color_temp": "Temperatura modo noche (Kelvin)",
+          "sleep_rgb": "Color RGB en modo noche (selector de color / caja RGB)",
           "sleep_weekend_enable": "Horario de fin de semana",
           "sleep_weekend_start_time": "Fin de semana: Inicio modo noche",
           "sleep_weekend_end_time": "Fin de semana: Fin modo noche",
@@ -133,6 +135,7 @@
     "sensor": {
       "target_brightness": { "name": "Brillo Objetivo" },
       "target_color_temp": { "name": "Temperatura Objetivo" },
+      "target_rgb": { "name": "Color RGB Objetivo" },
       "phase": { "name": "Fase Circadiana" },
       "weather_boost": { "name": "Compensación Clima" },
       "manual_overrides": { "name": "Anulaciones Manuales" },

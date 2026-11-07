@@ -65,6 +65,7 @@
           "sleep_end_time": "Nachtmodus Endzeit",
           "sleep_brightness": "Nachtmodus Helligkeit (%)",
           "sleep_color_temp": "Nachtmodus Farbtemperatur (Kelvin)",
+          "sleep_rgb": "Nachtmodus RGB-Farbe (Farbauswahl / RGB-Box)",
           "sleep_weekend_enable": "Separater Wochenend-Zeitplan",
           "sleep_weekend_start_time": "Wochenende: Startzeit",
           "sleep_weekend_end_time": "Wochenende: Endzeit",
@@ -110,6 +111,7 @@
           "sleep_end_time": "Endzeit",
           "sleep_brightness": "Nachtmodus Helligkeit (%)",
           "sleep_color_temp": "Nachtmodus Farbtemperatur (Kelvin)",
+          "sleep_rgb": "Nachtmodus RGB-Farbe (Farbauswahl / RGB-Box)",
           "sleep_weekend_enable": "Wochenend-Zeitplan",
           "sleep_weekend_start_time": "Wochenende Startzeit",
           "sleep_weekend_end_time": "Wochenende Endzeit",
@@ -133,6 +135,7 @@
     "sensor": {
       "target_brightness": { "name": "Ziel-Helligkeit" },
       "target_color_temp": { "name": "Ziel-Farbtemperatur" },
+      "target_rgb": { "name": "Ziel-RGB-Farbe" },
       "phase": { "name": "Zirkadiane Phase" },
       "weather_boost": { "name": "Wetter-Boost" },
       "manual_overrides": { "name": "Manuelle Übersteuerungen" },

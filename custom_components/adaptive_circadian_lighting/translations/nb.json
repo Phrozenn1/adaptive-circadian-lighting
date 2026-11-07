@@ -65,6 +65,7 @@
           "sleep_end_time": "Avslutt nattmodus (klokkeslett)",
           "sleep_brightness": "Nattmodus lysstyrke (%)",
           "sleep_color_temp": "Nattmodus fargetemperatur (Kelvin)",
+          "sleep_rgb": "Nattmodus RGB-farge (fargevelger / RGB-boks)",
           "sleep_weekend_enable": "Egen nattplan for helg (fre/lør kveld, lør/søn morgen)",
           "sleep_weekend_start_time": "Helg: Start nattmodus (klokkeslett)",
           "sleep_weekend_end_time": "Helg: Avslutt nattmodus (klokkeslett)",
@@ -110,6 +111,7 @@
           "sleep_end_time": "Avslutt nattmodus (klokkeslett)",
           "sleep_brightness": "Nattmodus lysstyrke (%)",
           "sleep_color_temp": "Nattmodus fargetemperatur (Kelvin)",
+          "sleep_rgb": "Nattmodus RGB-farge (fargevelger / RGB-boks)",
           "sleep_weekend_enable": "Egen nattplan for helg (fre/lør kveld, lør/søn morgen)",
           "sleep_weekend_start_time": "Helg: Start nattmodus (klokkeslett)",
           "sleep_weekend_end_time": "Helg: Avslutt nattmodus (klokkeslett)",
@@ -133,6 +135,7 @@
     "sensor": {
       "target_brightness": { "name": "Mål-lysstyrke" },
       "target_color_temp": { "name": "Mål-fargetemperatur" },
+      "target_rgb": { "name": "Mål-RGB-farge" },
       "phase": { "name": "Døgnfase" },
       "weather_boost": { "name": "Vær-boost" },
       "manual_overrides": { "name": "Manuelle overstyringer" },

@@ -263,6 +263,9 @@ class AdaptiveCircadianConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Required(CONF_SLEEP_COLOR_TEMP, default=DEFAULT_SLEEP_COLOR_TEMP): selector.NumberSelector(
                     selector.NumberSelectorConfig(min=1000, max=4000, step=100, unit_of_measurement="K")
                 ),
+                vol.Optional(CONF_SLEEP_RGB, default=DEFAULT_SLEEP_RGB): selector.ColorRGBSelector(
+                    selector.ColorRGBSelectorConfig()
+                ),
                 vol.Required(CONF_SLEEP_WEEKEND_ENABLE, default=DEFAULT_SLEEP_WEEKEND_ENABLE): bool,
                 vol.Required(CONF_SLEEP_WEEKEND_START_TIME, default=DEFAULT_SLEEP_WEEKEND_START_TIME): selector.TimeSelector(),
                 vol.Required(CONF_SLEEP_WEEKEND_END_TIME, default=DEFAULT_SLEEP_WEEKEND_END_TIME): selector.TimeSelector(),
@@ -391,6 +394,9 @@ class AdaptiveCircadianOptionsFlow(config_entries.OptionsFlow):
             ),
             vol.Required(CONF_SLEEP_COLOR_TEMP, default=current.get(CONF_SLEEP_COLOR_TEMP, DEFAULT_SLEEP_COLOR_TEMP)): selector.NumberSelector(
                 selector.NumberSelectorConfig(min=1000, max=4000, step=100, unit_of_measurement="K")
+            ),
+            vol.Optional(CONF_SLEEP_RGB, default=current.get(CONF_SLEEP_RGB, DEFAULT_SLEEP_RGB)): selector.ColorRGBSelector(
+                selector.ColorRGBSelectorConfig()
             ),
             vol.Required(CONF_SLEEP_WEEKEND_ENABLE, default=current.get(CONF_SLEEP_WEEKEND_ENABLE, DEFAULT_SLEEP_WEEKEND_ENABLE)): bool,
             vol.Required(CONF_SLEEP_WEEKEND_START_TIME, default=current.get(CONF_SLEEP_WEEKEND_START_TIME, DEFAULT_SLEEP_WEEKEND_START_TIME)): selector.TimeSelector(),

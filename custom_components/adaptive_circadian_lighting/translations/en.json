@@ -65,6 +65,7 @@
           "sleep_end_time": "Sleep Mode End Time",
           "sleep_brightness": "Sleep Mode Brightness (%)",
           "sleep_color_temp": "Sleep Mode Color Temp (Kelvin)",
+          "sleep_rgb": "Sleep Mode RGB Color (Color Picker Box)",
           "sleep_weekend_enable": "Separate Weekend Sleep Schedule (Fri/Sat night, Sat/Sun morning)",
           "sleep_weekend_start_time": "Weekend: Sleep Start Time",
           "sleep_weekend_end_time": "Weekend: Sleep End Time",
@@ -110,6 +111,7 @@
           "sleep_end_time": "Sleep Mode End Time",
           "sleep_brightness": "Sleep Mode Brightness (%)",
           "sleep_color_temp": "Sleep Mode Color Temp (Kelvin)",
+          "sleep_rgb": "Sleep Mode RGB Color (Color Picker Box)",
           "sleep_weekend_enable": "Separate Weekend Sleep Schedule (Fri/Sat night, Sat/Sun morning)",
           "sleep_weekend_start_time": "Weekend: Sleep Start Time",
           "sleep_weekend_end_time": "Weekend: Sleep End Time",
@@ -133,6 +135,7 @@
     "sensor": {
       "target_brightness": { "name": "Target Brightness" },
       "target_color_temp": { "name": "Target Color Temp" },
+      "target_rgb": { "name": "Target RGB Color" },
       "phase": { "name": "Circadian Phase" },
       "weather_boost": { "name": "Weather Boost" },
       "manual_overrides": { "name": "Manual Overrides" },

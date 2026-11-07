@@ -83,6 +83,19 @@ class TestProfiles(unittest.TestCase):
         self.assertTrue(k >= 5500)
         self.assertIsNone(rgb)
 
+    def test_sleep_rgb_override(self):
+        # Custom sleep RGB color
+        pm = ProfileManager(
+            active_profile=PROFILE_SLEEP,
+            sleep_brightness=10,
+            sleep_color_temp=2000,
+            sleep_rgb=[255, 60, 0],
+        )
+        b, k, rgb = pm.get_profile_override()
+        self.assertEqual(b, 10)
+        self.assertEqual(k, 2000)
+        self.assertEqual(rgb, (255, 60, 0))
+
     def test_sleep_schedule_window_and_transitions(self):
         # Schedule from 23:00 to 06:30
         pm = ProfileManager(

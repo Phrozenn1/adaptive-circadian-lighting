@@ -112,6 +112,21 @@ class AdaptiveCircadianCard extends HTMLElement {
     return I18N[lang] || I18N.en;
   }
 
+  _kelvinToRgb(k) {
+    const temp = Math.max(1000, Math.min(40000, k || 4000)) / 100.0;
+    let r, g, b;
+    if (temp <= 66) {
+      r = 255;
+      g = Math.max(0, Math.min(255, 99.4708025861 * Math.log(temp) - 161.1195681661));
+      b = temp <= 19 ? 0 : Math.max(0, Math.min(255, 138.5177312231 * Math.log(temp - 10) - 305.0447927307));
+    } else {
+      r = Math.max(0, Math.min(255, 329.698727446 * Math.pow(temp - 60, -0.1332047592)));
+      g = Math.max(0, Math.min(255, 288.1221695283 * Math.pow(temp - 60, -0.0755148492)));
+      b = 255;
+    }
+    return [Math.round(r), Math.round(g), Math.round(b)];
+  }
+
   _findRelatedEntities() {
     const states = this._hass?.states || {};
     const baseEntity = this._config?.entity || "";
@@ -133,6 +148,7 @@ class AdaptiveCircadianCard extends HTMLElement {
       colorModeSelect: null,
       targetBrightness: null,
       targetKelvin: null,
+      targetRgb: null,
       phaseSensor: null,
       weatherBoost: null,
       overridesSensor: null,
@@ -153,6 +169,7 @@ class AdaptiveCircadianCard extends HTMLElement {
 
       if (entityId.startsWith("sensor.") && entityId.endsWith("_target_brightness")) result.targetBrightness = stateObj;
       if (entityId.startsWith("sensor.") && entityId.endsWith("_target_color_temp")) result.targetKelvin = stateObj;
+      if (entityId.startsWith("sensor.") && entityId.endsWith("_target_rgb")) result.targetRgb = stateObj;
       if (entityId.startsWith("sensor.") && entityId.endsWith("_phase")) result.phaseSensor = stateObj;
       if (entityId.startsWith("sensor.") && entityId.endsWith("_weather_boost")) result.weatherBoost = stateObj;
       if (entityId.startsWith("sensor.") && entityId.endsWith("_manual_overrides")) result.overridesSensor = stateObj;
@@ -177,6 +194,18 @@ class AdaptiveCircadianCard extends HTMLElement {
     const weatherBoost = entities.weatherBoost?.state || "none";
     const overrideCount = parseInt(entities.overridesSensor?.state || "0", 10);
     const presenceState = entities.presenceSensor?.state || "unknown";
+
+    // Live target RGB color
+    let rgbColor = [255, 180, 100];
+    if (entities.targetRgb?.attributes?.rgb_color && Array.isArray(entities.targetRgb.attributes.rgb_color)) {
+      rgbColor = entities.targetRgb.attributes.rgb_color;
+    } else if (entities.targetRgb?.state && entities.targetRgb.state.includes(",")) {
+      rgbColor = entities.targetRgb.state.split(",").map(v => parseInt(v.trim(), 10));
+    } else if (entities.targetKelvin?.attributes?.target_rgb) {
+      rgbColor = entities.targetKelvin.attributes.target_rgb;
+    } else {
+      rgbColor = this._kelvinToRgb(parseInt(currentKelvin, 10));
+    }
 
     // 24h Curve calculation
     const now = new Date();
@@ -289,6 +318,27 @@ class AdaptiveCircadianCard extends HTMLElement {
           font-weight: 700;
           margin-top: 2px;
           color: #ffb74d;
+        }
+        .color-val-box {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+        }
+        .color-rgb-box {
+          display: inline-block;
+          width: 14px;
+          height: 14px;
+          border-radius: 4px;
+          border: 1px solid rgba(255, 255, 255, 0.4);
+          box-shadow: 0 0 6px rgba(0, 0, 0, 0.3);
+          flex-shrink: 0;
+        }
+        .rgb-subtext {
+          font-size: 0.68rem;
+          font-weight: 500;
+          opacity: 0.65;
+          margin-top: 2px;
         }
         .stat-label {
           font-size: 0.72rem;
@@ -414,7 +464,11 @@ class AdaptiveCircadianCard extends HTMLElement {
           </div>
           <div class="stat-box">
             <div class="stat-label">${t.colorTemp}</div>
-            <div class="stat-value">${currentKelvin}K</div>
+            <div class="stat-value color-val-box">
+              <span class="color-rgb-box" style="background: rgb(${rgbColor.join(',')});" title="RGB: ${rgbColor.join(', ')}"></span>
+              <span>${currentKelvin}K</span>
+            </div>
+            <div class="rgb-subtext">RGB(${rgbColor.join(', ')})</div>
           </div>
           <div class="stat-box">
             <div class="stat-label">${t.phase}</div>

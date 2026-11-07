@@ -13,7 +13,7 @@ from homeassistant.helpers.event import async_track_time_interval
 
 from .anti_glare import AntiGlareInterceptor
 from .calc_engine import CurveCalculator, HybridCalculator, SunCalculator
-from .color_utils import prepare_light_service_data
+from .color_utils import kelvin_to_rgb, prepare_light_service_data
 from .const import (
     CALC_MODE_CURVE,
     CALC_MODE_HYBRID,
@@ -148,6 +148,7 @@ class AdaptiveCoordinator:
         # State outputs
         self.target_brightness: int = 100
         self.target_kelvin: int = 4000
+        self.target_rgb: List[int] = [255, 180, 100]
         self.phase: str = "day"
         self.weather_boost_desc: str = "none"
 
@@ -326,10 +327,14 @@ class AdaptiveCoordinator:
         # 1. Profile override check
         profile_override = self.profile_mgr.get_profile_override()
         if profile_override is not None:
-            self.target_brightness, self.target_kelvin, _ = profile_override
+            self.target_brightness, self.target_kelvin, rgb_ov = profile_override
             self.phase = f"profile_{self.profile_mgr.active_profile}"
             if self.evening_max_brightness > 0 and self.profile_mgr.active_profile == PROFILE_EVENING:
                 self.target_brightness = min(self.target_brightness, self.evening_max_brightness)
+            if rgb_ov is not None:
+                self.target_rgb = list(rgb_ov)
+            else:
+                self.target_rgb = list(kelvin_to_rgb(self.target_kelvin))
             return
 
         # 2. Base Calculation Mode
@@ -357,6 +362,12 @@ class AdaptiveCoordinator:
             is_evening_or_night = phase in ("evening_ramp", "night", "twilight")
             if is_evening_or_night:
                 self.target_brightness = min(self.target_brightness, self.evening_max_brightness)
+
+        # 5. Live target RGB
+        if self.profile_mgr.is_sleep() and self.profile_mgr.sleep_rgb:
+            self.target_rgb = list(self.profile_mgr.sleep_rgb)
+        else:
+            self.target_rgb = list(kelvin_to_rgb(self.target_kelvin))
 
     def _get_anti_glare_payload(self, entity_id: str) -> Dict[str, Any]:
         """Return target payload for intercepted light.turn_on."""

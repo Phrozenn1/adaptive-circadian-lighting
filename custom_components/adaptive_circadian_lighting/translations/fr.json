@@ -65,6 +65,7 @@
           "sleep_end_time": "Heure de fin du mode nuit",
           "sleep_brightness": "Luminosité mode nuit (%)",
           "sleep_color_temp": "Température mode nuit (Kelvin)",
+          "sleep_rgb": "Couleur RVB mode nuit (sélecteur de couleur / boîte RVB)",
           "sleep_weekend_enable": "Horaire séparé pour le week-end",
           "sleep_weekend_start_time": "Week-end: Début mode nuit",
           "sleep_weekend_end_time": "Week-end: Fin mode nuit",
@@ -110,6 +111,7 @@
           "sleep_end_time": "Fin mode nuit",
           "sleep_brightness": "Luminosité nuit (%)",
           "sleep_color_temp": "Température nuit (Kelvin)",
+          "sleep_rgb": "Couleur RVB mode nuit (sélecteur de couleur / boîte RVB)",
           "sleep_weekend_enable": "Horaire week-end",
           "sleep_weekend_start_time": "Week-end début nuit",
           "sleep_weekend_end_time": "Week-end fin nuit",
@@ -133,6 +135,7 @@
     "sensor": {
       "target_brightness": { "name": "Luminosité cible" },
       "target_color_temp": { "name": "Température cible" },
+      "target_rgb": { "name": "Couleur RVB cible" },
       "phase": { "name": "Phase circadienne" },
       "weather_boost": { "name": "Boost météo" },
       "manual_overrides": { "name": "Dérogations manuelles" },

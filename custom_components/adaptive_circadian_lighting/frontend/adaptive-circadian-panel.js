@@ -291,7 +291,22 @@ class AdaptiveCircadianPanel extends HTMLElement {
   }
 
   _computeFingerprint(instances) {
-    return instances.map(i => `${i.prefix}:${i.enabled}:${i.targetBrightness}:${i.targetKelvin}:${i.profile}:${i.phase}:${i.weatherBoost}:${i.overrides}:${i.presence}`).join("|");
+    return instances.map(i => `${i.prefix}:${i.enabled}:${i.targetBrightness}:${i.targetKelvin}:${i.rgb ? i.rgb.join(',') : ''}:${i.profile}:${i.phase}:${i.weatherBoost}:${i.overrides}:${i.presence}`).join("|");
+  }
+
+  _kelvinToRgb(k) {
+    const temp = Math.max(1000, Math.min(40000, k || 4000)) / 100.0;
+    let r, g, b;
+    if (temp <= 66) {
+      r = 255;
+      g = Math.max(0, Math.min(255, 99.4708025861 * Math.log(temp) - 161.1195681661));
+      b = temp <= 19 ? 0 : Math.max(0, Math.min(255, 138.5177312231 * Math.log(temp - 10) - 305.0447927307));
+    } else {
+      r = Math.max(0, Math.min(255, 329.698727446 * Math.pow(temp - 60, -0.1332047592)));
+      g = Math.max(0, Math.min(255, 288.1221695283 * Math.pow(temp - 60, -0.0755148492)));
+      b = 255;
+    }
+    return [Math.round(r), Math.round(g), Math.round(b)];
   }
 
   _getInstances() {
@@ -303,6 +318,18 @@ class AdaptiveCircadianPanel extends HTMLElement {
         const prefix = entityId.replace(/^switch\./, "").replace(/_adaptation$/, "");
         const friendlyName = stateObj.attributes.friendly_name?.replace(/ Adaptation$/i, "") || prefix;
 
+        const rgbSensor = states[`sensor.${prefix}_target_rgb`];
+        let rgbArray = [255, 180, 100];
+        if (rgbSensor?.attributes?.rgb_color && Array.isArray(rgbSensor.attributes.rgb_color)) {
+          rgbArray = rgbSensor.attributes.rgb_color;
+        } else if (rgbSensor?.state && rgbSensor.state.includes(",")) {
+          rgbArray = rgbSensor.state.split(",").map(v => parseInt(v.trim(), 10));
+        } else if (states[`sensor.${prefix}_target_color_temp`]?.attributes?.target_rgb) {
+          rgbArray = states[`sensor.${prefix}_target_color_temp`].attributes.target_rgb;
+        } else {
+          rgbArray = this._kelvinToRgb(parseInt(states[`sensor.${prefix}_target_color_temp`]?.state || "4000", 10));
+        }
+
         instances.push({
           prefix,
           name: friendlyName,
@@ -310,6 +337,7 @@ class AdaptiveCircadianPanel extends HTMLElement {
           enabled: stateObj.state === "on",
           targetBrightness: states[`sensor.${prefix}_target_brightness`]?.state || "100",
           targetKelvin: states[`sensor.${prefix}_target_color_temp`]?.state || "4000",
+          rgb: rgbArray,
           phase: states[`sensor.${prefix}_phase`]?.state || "day",
           profile: states[`select.${prefix}_profile`]?.state || "normal",
           weatherBoost: states[`sensor.${prefix}_weather_boost`]?.state || "none",
@@ -504,6 +532,26 @@ class AdaptiveCircadianPanel extends HTMLElement {
           font-size: 1.25rem;
           font-weight: 700;
           color: #ffb74d;
+          margin-top: 2px;
+        }
+        .value-color-row {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+        .color-rgb-box {
+          display: inline-block;
+          width: 18px;
+          height: 18px;
+          border-radius: 4px;
+          border: 1px solid rgba(255, 255, 255, 0.4);
+          box-shadow: 0 0 8px rgba(0, 0, 0, 0.4);
+          flex-shrink: 0;
+        }
+        .rgb-subtext {
+          font-size: 0.72rem;
+          font-weight: 500;
+          opacity: 0.65;
           margin-top: 2px;
         }
         .kelvin-bar-wrap {
@@ -704,7 +752,11 @@ class AdaptiveCircadianPanel extends HTMLElement {
                     </div>
                     <div class="stat-item">
                       <div class="label">${t.targetColor}</div>
-                      <div class="value">${inst.targetKelvin}K</div>
+                      <div class="value value-color-row">
+                        <span class="color-rgb-box" style="background: rgb(${inst.rgb.join(',')});" title="RGB: ${inst.rgb.join(', ')}"></span>
+                        <span>${inst.targetKelvin}K</span>
+                      </div>
+                      <div class="rgb-subtext">RGB(${inst.rgb.join(', ')})</div>
                     </div>
                   </div>
 

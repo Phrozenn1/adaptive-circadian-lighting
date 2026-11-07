@@ -23,6 +23,7 @@ async def async_setup_entry(
     entities = [
         AdaptiveBrightnessSensor(coordinator, entry),
         AdaptiveKelvinSensor(coordinator, entry),
+        AdaptiveRgbSensor(coordinator, entry),
         AdaptivePhaseSensor(coordinator, entry),
         AdaptiveWeatherBoostSensor(coordinator, entry),
         AdaptiveOverridesSensor(coordinator, entry),
@@ -85,6 +86,43 @@ class AdaptiveKelvinSensor(BaseAdaptiveSensor):
     @property
     def native_value(self) -> int:
         return self.coordinator.target_kelvin
+
+    @property
+    def extra_state_attributes(self) -> Mapping[str, Any]:
+        rgb = self.coordinator.target_rgb
+        return {
+            "target_rgb": rgb,
+            "rgb_color": rgb,
+            "hex_color": f"#{rgb[0]:02x}{rgb[1]:02x}{rgb[2]:02x}",
+        }
+
+
+class AdaptiveRgbSensor(BaseAdaptiveSensor):
+    """Current target RGB color."""
+
+    _attr_translation_key = "target_rgb"
+    _attr_icon = "mdi:palette"
+
+    def __init__(self, coordinator: AdaptiveCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator, entry)
+        self._attr_unique_id = f"{entry.entry_id}_target_rgb"
+        self._attr_name = "Target RGB Color"
+
+    @property
+    def native_value(self) -> str:
+        rgb = self.coordinator.target_rgb
+        return f"{rgb[0]}, {rgb[1]}, {rgb[2]}"
+
+    @property
+    def extra_state_attributes(self) -> Mapping[str, Any]:
+        rgb = self.coordinator.target_rgb
+        return {
+            "r": rgb[0],
+            "g": rgb[1],
+            "b": rgb[2],
+            "rgb_color": rgb,
+            "hex_color": f"#{rgb[0]:02x}{rgb[1]:02x}{rgb[2]:02x}",
+        }
 
 
 class AdaptivePhaseSensor(BaseAdaptiveSensor):
