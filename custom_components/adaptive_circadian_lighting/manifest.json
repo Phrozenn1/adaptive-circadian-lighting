@@ -1,12 +1,13 @@
 {
   "domain": "adaptive_circadian_lighting",
   "name": "Adaptive Circadian Lighting",
-  "version": "1.0.0",
   "codeowners": ["@Phrozenn1"],
   "config_flow": true,
-  "documentation": "https://github.com/Phrozenn1/adaptive-circadian-lighting",
-  "issue_tracker": "https://github.com/Phrozenn1/adaptive-circadian-lighting/issues",
   "dependencies": ["frontend", "http", "panel_custom"],
+  "documentation": "https://github.com/Phrozenn1/adaptive-circadian-lighting",
+  "integration_type": "service",
   "iot_class": "calculated",
-  "requirements": []
+  "issue_tracker": "https://github.com/Phrozenn1/adaptive-circadian-lighting/issues",
+  "requirements": [],
+  "version": "1.0.0"
 }
