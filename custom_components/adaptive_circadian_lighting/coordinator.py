@@ -21,6 +21,7 @@ from .const import (
     CALC_MODE_SUN,
     COLOR_MODE_AUTO,
     CONF_ANTI_GLARE,
+    CONF_AUTO_TURN_ON,
     CONF_CALC_MODE,
     CONF_CLOUD_BOOST_KELVIN,
     CONF_CLOUD_BOOST_PCT,
@@ -40,6 +41,7 @@ from .const import (
     CONF_MIN_COLOR_TEMP,
     CONF_MIN_SUNRISE_TIME,
     CONF_MIN_SUNSET_TIME,
+    CONF_MOTION_DEBOUNCE,
     CONF_NAME,
     CONF_OFF_TIMEOUT,
     CONF_OVERRIDE_TIMEOUT,
@@ -47,7 +49,9 @@ from .const import (
     CONF_PRESENCE_SENSORS,
     CONF_PRIORITIZE_LUX,
     CONF_TRANSITION,
+    CONF_TURN_ON_LUX_THRESHOLD,
     CONF_WEATHER_ENTITY,
+    DEFAULT_AUTO_TURN_ON,
     DEFAULT_CALC_MODE,
     DEFAULT_COLOR_MODE,
     DEFAULT_DIM_BRIGHTNESS,
@@ -62,9 +66,11 @@ from .const import (
     DEFAULT_MIN_COLOR_TEMP,
     DEFAULT_MIN_SUNRISE,
     DEFAULT_MIN_SUNSET,
+    DEFAULT_MOTION_DEBOUNCE,
     DEFAULT_OFF_TIMEOUT,
     DEFAULT_OVERRIDE_TIMEOUT,
     DEFAULT_TRANSITION,
+    DEFAULT_TURN_ON_LUX_THRESHOLD,
     PROFILE_NORMAL,
     PROFILE_SLEEP,
 )
@@ -122,25 +128,6 @@ class AdaptiveCoordinator:
         )
         self.curve_calc = CurveCalculator(entry.data.get(CONF_CURVE_POINTS))
 
-        self.weather_engine = WeatherEngine(
-            hass,
-            weather_entity=entry.data.get(CONF_WEATHER_ENTITY),
-            lux_sensor=entry.data.get(CONF_LUX_SENSOR),
-            cloud_boost_pct=entry.data.get(CONF_CLOUD_BOOST_PCT, 25),
-            cloud_boost_kelvin=entry.data.get(CONF_CLOUD_BOOST_KELVIN, 600),
-            prioritize_lux=entry.data.get(CONF_PRIORITIZE_LUX, True),
-        )
-
-        self.profile_mgr = ProfileManager()
-
-        self.override_mgr = OverrideManager(
-            hass,
-            lights=self.lights,
-            timeout_minutes=entry.data.get(CONF_OVERRIDE_TIMEOUT, DEFAULT_OVERRIDE_TIMEOUT),
-            on_override_reset_callback=self._on_override_reset,
-            on_manual_change_callback=self._on_manual_change,
-        )
-
         presence_enabled = entry.data.get(CONF_PRESENCE_ENABLE, False)
         presence_sensors = entry.data.get(CONF_PRESENCE_SENSORS, [])
         self.presence_mgr: Optional[PresenceManager] = None
@@ -152,11 +139,34 @@ class AdaptiveCoordinator:
                 off_timeout=entry.data.get(CONF_OFF_TIMEOUT, DEFAULT_OFF_TIMEOUT),
                 grace_period=entry.data.get(CONF_GRACE_PERIOD, DEFAULT_GRACE_PERIOD),
                 dim_brightness=entry.data.get(CONF_DIM_BRIGHTNESS, DEFAULT_DIM_BRIGHTNESS),
+                auto_turn_on=entry.data.get(CONF_AUTO_TURN_ON, DEFAULT_AUTO_TURN_ON),
+                turn_on_lux_threshold=entry.data.get(CONF_TURN_ON_LUX_THRESHOLD, DEFAULT_TURN_ON_LUX_THRESHOLD),
+                motion_debounce=entry.data.get(CONF_MOTION_DEBOUNCE, DEFAULT_MOTION_DEBOUNCE),
                 on_dim_callback=self._on_presence_dim,
                 on_off_callback=self._on_presence_off,
                 on_restore_manual_callback=self._on_presence_restore_manual,
                 on_turn_on_adaptive_callback=self._on_presence_turn_on_adaptive,
             )
+
+        self.weather_engine = WeatherEngine(
+            hass,
+            weather_entity=entry.data.get(CONF_WEATHER_ENTITY),
+            lux_sensor=entry.data.get(CONF_LUX_SENSOR),
+            cloud_boost_pct=entry.data.get(CONF_CLOUD_BOOST_PCT, 25),
+            cloud_boost_kelvin=entry.data.get(CONF_CLOUD_BOOST_KELVIN, 600),
+            prioritize_lux=entry.data.get(CONF_PRIORITIZE_LUX, True),
+            get_presence_lux_callback=lambda: self.presence_mgr.get_ambient_lux() if self.presence_mgr else None,
+        )
+
+        self.profile_mgr = ProfileManager()
+
+        self.override_mgr = OverrideManager(
+            hass,
+            lights=self.lights,
+            timeout_minutes=entry.data.get(CONF_OVERRIDE_TIMEOUT, DEFAULT_OVERRIDE_TIMEOUT),
+            on_override_reset_callback=self._on_override_reset,
+            on_manual_change_callback=self._on_manual_change,
+        )
 
         anti_glare_on = entry.data.get(CONF_ANTI_GLARE, True)
         self.anti_glare = AntiGlareInterceptor(

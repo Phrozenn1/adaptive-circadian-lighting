@@ -56,6 +56,9 @@ CONF_PRIORITIZE_LUX = "prioritize_lux"
 # Presence & Motion Settings
 CONF_PRESENCE_ENABLE = "presence_enable"
 CONF_PRESENCE_SENSORS = "presence_sensors"
+CONF_AUTO_TURN_ON = "auto_turn_on"
+CONF_TURN_ON_LUX_THRESHOLD = "turn_on_lux_threshold"
+CONF_MOTION_DEBOUNCE = "motion_debounce"
 CONF_DIM_TIMEOUT = "dim_timeout"        # seconds after motion stops to dim
 CONF_OFF_TIMEOUT = "off_timeout"        # seconds after dimming to turn off
 CONF_GRACE_PERIOD = "grace_period"      # seconds to remember manual settings
@@ -90,7 +93,10 @@ DEFAULT_CLOUD_BOOST_KELVIN = 600
 DEFAULT_PRIORITIZE_LUX = True
 
 DEFAULT_PRESENCE_ENABLE = False
-DEFAULT_DIM_TIMEOUT = 180       # 3 minutes
+DEFAULT_AUTO_TURN_ON = True
+DEFAULT_TURN_ON_LUX_THRESHOLD = 0       # 0 = always turn on, >0 = only when lux is below threshold
+DEFAULT_MOTION_DEBOUNCE = 30            # 30s buffer for Aqara PIR / mmWave micro-fluctuations
+DEFAULT_DIM_TIMEOUT = 180               # 3 minutes
 DEFAULT_OFF_TIMEOUT = 120       # 2 minutes
 DEFAULT_GRACE_PERIOD = 900      # 15 minutes
 DEFAULT_DIM_BRIGHTNESS = 10     # 10%

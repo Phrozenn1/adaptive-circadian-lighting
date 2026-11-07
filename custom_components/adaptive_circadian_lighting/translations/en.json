@@ -33,7 +33,10 @@
         "description": "Automatically dim and turn off lights when room is empty, with memory for manual adjustments.",
         "data": {
           "presence_enable": "Enable Presence Automation",
-          "presence_sensors": "Motion / Presence Sensors",
+          "presence_sensors": "Motion / Presence Sensors (Aqara, mmWave, etc.)",
+          "auto_turn_on": "Automatically turn on lights on motion",
+          "motion_debounce": "Motion Debounce / Blind-Time Buffer (seconds, prevents rapid dimming with Aqara sensors)",
+          "turn_on_lux_threshold": "Daylight Turn-On Threshold (lux, 0 = always turn on)",
           "dim_timeout": "Dim Timeout (seconds without motion before dimming)",
           "off_timeout": "Off Timeout (seconds after dimming before turning off)",
           "grace_period": "Grace Period (seconds to remember manual settings when re-entering)",
@@ -50,7 +53,16 @@
           "max_color_temp": "Maximum Color Temperature (Cool Kelvin)",
           "transition": "Transition Time (seconds)",
           "override_timeout": "Manual Override Timeout (minutes)",
-          "anti_glare": "Anti-Glare (Prevent blinding light turn-on)"
+          "anti_glare": "Anti-Glare (Prevent blinding light turn-on)",
+          "presence_enable": "Enable Presence Automation",
+          "presence_sensors": "Motion / Presence Sensors (Aqara, mmWave, etc.)",
+          "auto_turn_on": "Automatically turn on lights on motion",
+          "motion_debounce": "Motion Debounce / Blind-Time Buffer (seconds)",
+          "turn_on_lux_threshold": "Daylight Turn-On Threshold (lux, 0 = always)",
+          "dim_timeout": "Dim Timeout (seconds without motion before dimming)",
+          "off_timeout": "Off Timeout (seconds after dimming before turning off)",
+          "grace_period": "Grace Period (seconds to remember manual settings)",
+          "dim_brightness": "Dimmed Brightness Level (%)"
         }
       }
     }
@@ -71,7 +83,16 @@
           "min_color_temp": "Minimum Color Temperature (Kelvin)",
           "max_color_temp": "Maximum Color Temperature (Kelvin)",
           "override_timeout": "Manual Override Timeout (minutes)",
-          "anti_glare": "Anti-Glare (Prevent blinding light turn-on)"
+          "anti_glare": "Anti-Glare (Prevent blinding light turn-on)",
+          "presence_enable": "Enable Presence Automation",
+          "presence_sensors": "Motion / Presence Sensors (Aqara, mmWave, etc.)",
+          "auto_turn_on": "Automatically turn on lights on motion",
+          "motion_debounce": "Motion Debounce / Blind-Time Buffer (seconds)",
+          "turn_on_lux_threshold": "Daylight Turn-On Threshold (lux, 0 = always)",
+          "dim_timeout": "Dim Timeout (seconds without motion before dimming)",
+          "off_timeout": "Off Timeout (seconds after dimming before turning off)",
+          "grace_period": "Grace Period (seconds to remember manual settings)",
+          "dim_brightness": "Dimmed Brightness Level (%)"
         }
       }
     }

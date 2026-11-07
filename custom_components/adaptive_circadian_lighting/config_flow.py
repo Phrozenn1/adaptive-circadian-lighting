@@ -11,6 +11,7 @@ from .const import (
     CALC_MODES,
     COLOR_MODES,
     CONF_ANTI_GLARE,
+    CONF_AUTO_TURN_ON,
     CONF_CALC_MODE,
     CONF_CLOUD_BOOST_KELVIN,
     CONF_CLOUD_BOOST_PCT,
@@ -25,6 +26,7 @@ from .const import (
     CONF_MAX_COLOR_TEMP,
     CONF_MIN_BRIGHTNESS,
     CONF_MIN_COLOR_TEMP,
+    CONF_MOTION_DEBOUNCE,
     CONF_NAME,
     CONF_OFF_TIMEOUT,
     CONF_OVERRIDE_TIMEOUT,
@@ -32,7 +34,9 @@ from .const import (
     CONF_PRESENCE_SENSORS,
     CONF_PRIORITIZE_LUX,
     CONF_TRANSITION,
+    CONF_TURN_ON_LUX_THRESHOLD,
     CONF_WEATHER_ENTITY,
+    DEFAULT_AUTO_TURN_ON,
     DEFAULT_CALC_MODE,
     DEFAULT_CLOUD_BOOST_KELVIN,
     DEFAULT_CLOUD_BOOST_PCT,
@@ -45,11 +49,13 @@ from .const import (
     DEFAULT_MAX_COLOR_TEMP,
     DEFAULT_MIN_BRIGHTNESS,
     DEFAULT_MIN_COLOR_TEMP,
+    DEFAULT_MOTION_DEBOUNCE,
     DEFAULT_NAME,
     DEFAULT_OFF_TIMEOUT,
     DEFAULT_OVERRIDE_TIMEOUT,
     DEFAULT_PRIORITIZE_LUX,
     DEFAULT_TRANSITION,
+    DEFAULT_TURN_ON_LUX_THRESHOLD,
     DOMAIN,
 )
 
@@ -133,7 +139,7 @@ class AdaptiveCircadianConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(step_id="weather", data_schema=schema, errors=errors)
 
     async def async_step_presence(self, user_input=None):
-        """Step 4: Motion/Presence sensors and memory timeouts."""
+        """Step 4: Motion/Presence sensors, Aqara blind-time debounce, and memory timeouts."""
         errors = {}
         if user_input is not None:
             self._data.update(user_input)
@@ -144,6 +150,13 @@ class AdaptiveCircadianConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Required(CONF_PRESENCE_ENABLE, default=False): bool,
                 vol.Optional(CONF_PRESENCE_SENSORS): selector.EntitySelector(
                     selector.EntitySelectorConfig(domain="binary_sensor", multiple=True)
+                ),
+                vol.Required(CONF_AUTO_TURN_ON, default=DEFAULT_AUTO_TURN_ON): bool,
+                vol.Required(CONF_MOTION_DEBOUNCE, default=DEFAULT_MOTION_DEBOUNCE): selector.NumberSelector(
+                    selector.NumberSelectorConfig(min=0, max=180, step=5, unit_of_measurement="s")
+                ),
+                vol.Required(CONF_TURN_ON_LUX_THRESHOLD, default=DEFAULT_TURN_ON_LUX_THRESHOLD): selector.NumberSelector(
+                    selector.NumberSelectorConfig(min=0, max=1000, step=25, unit_of_measurement="lx")
                 ),
                 vol.Required(CONF_DIM_TIMEOUT, default=DEFAULT_DIM_TIMEOUT): selector.NumberSelector(
                     selector.NumberSelectorConfig(min=10, max=1800, step=10, unit_of_measurement="s")
@@ -247,6 +260,29 @@ class AdaptiveCircadianOptionsFlow(config_entries.OptionsFlow):
                     selector.NumberSelectorConfig(min=0, max=480, step=5, unit_of_measurement="min")
                 ),
                 vol.Required(CONF_ANTI_GLARE, default=current.get(CONF_ANTI_GLARE, True)): bool,
+                vol.Required(CONF_PRESENCE_ENABLE, default=current.get(CONF_PRESENCE_ENABLE, False)): bool,
+                vol.Optional(CONF_PRESENCE_SENSORS, default=current.get(CONF_PRESENCE_SENSORS, [])): selector.EntitySelector(
+                    selector.EntitySelectorConfig(domain="binary_sensor", multiple=True)
+                ),
+                vol.Required(CONF_AUTO_TURN_ON, default=current.get(CONF_AUTO_TURN_ON, DEFAULT_AUTO_TURN_ON)): bool,
+                vol.Required(CONF_MOTION_DEBOUNCE, default=current.get(CONF_MOTION_DEBOUNCE, DEFAULT_MOTION_DEBOUNCE)): selector.NumberSelector(
+                    selector.NumberSelectorConfig(min=0, max=180, step=5, unit_of_measurement="s")
+                ),
+                vol.Required(CONF_TURN_ON_LUX_THRESHOLD, default=current.get(CONF_TURN_ON_LUX_THRESHOLD, DEFAULT_TURN_ON_LUX_THRESHOLD)): selector.NumberSelector(
+                    selector.NumberSelectorConfig(min=0, max=1000, step=25, unit_of_measurement="lx")
+                ),
+                vol.Required(CONF_DIM_TIMEOUT, default=current.get(CONF_DIM_TIMEOUT, DEFAULT_DIM_TIMEOUT)): selector.NumberSelector(
+                    selector.NumberSelectorConfig(min=10, max=1800, step=10, unit_of_measurement="s")
+                ),
+                vol.Required(CONF_OFF_TIMEOUT, default=current.get(CONF_OFF_TIMEOUT, DEFAULT_OFF_TIMEOUT)): selector.NumberSelector(
+                    selector.NumberSelectorConfig(min=10, max=1800, step=10, unit_of_measurement="s")
+                ),
+                vol.Required(CONF_GRACE_PERIOD, default=current.get(CONF_GRACE_PERIOD, DEFAULT_GRACE_PERIOD)): selector.NumberSelector(
+                    selector.NumberSelectorConfig(min=60, max=3600, step=60, unit_of_measurement="s")
+                ),
+                vol.Required(CONF_DIM_BRIGHTNESS, default=current.get(CONF_DIM_BRIGHTNESS, DEFAULT_DIM_BRIGHTNESS)): selector.NumberSelector(
+                    selector.NumberSelectorConfig(min=1, max=30, step=1, unit_of_measurement="%")
+                ),
             }
         )
         return self.async_show_form(step_id="init", data_schema=schema)

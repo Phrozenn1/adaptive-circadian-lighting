@@ -1,4 +1,4 @@
-"""Presence and occupancy manager with manual state memory and staged dimming."""
+"""Presence and occupancy manager with Aqara sensor optimizations, staged dimming and manual state memory."""
 from __future__ import annotations
 
 import asyncio
@@ -10,10 +10,13 @@ from homeassistant.core import CALLBACK_TYPE, Event, HomeAssistant
 from homeassistant.helpers.event import async_track_state_change_event
 
 from .const import (
+    DEFAULT_AUTO_TURN_ON,
     DEFAULT_DIM_BRIGHTNESS,
     DEFAULT_DIM_TIMEOUT,
     DEFAULT_GRACE_PERIOD,
+    DEFAULT_MOTION_DEBOUNCE,
     DEFAULT_OFF_TIMEOUT,
+    DEFAULT_TURN_ON_LUX_THRESHOLD,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -22,9 +25,14 @@ STATE_OCCUPIED = "occupied"
 STATE_DIMMED = "dimmed"
 STATE_OFF = "off"
 
+# Recognized positive presence states across ZHA, Zigbee2MQTT, DeCONZ, Matter and Aqara Hubs
+POSITIVE_STATES = {"on", "open", "detected", "active", "occupied", "true", "1"}
+OCCUPANCY_ATTRIBUTES = ("occupancy", "presence", "motion", "moving", "has_target", "target")
+LUX_ATTRIBUTES = ("illuminance", "lux", "illuminance_lux", "light_level")
+
 
 class PresenceManager:
-    """Manages motion/presence sensors, staged dimming, and manual override persistence."""
+    """Manages motion/presence sensors (optimized for Aqara FP1/FP2/P1), staged dimming, and manual override persistence."""
 
     def __init__(
         self,
@@ -34,6 +42,9 @@ class PresenceManager:
         off_timeout: int = DEFAULT_OFF_TIMEOUT,
         grace_period: int = DEFAULT_GRACE_PERIOD,
         dim_brightness: int = DEFAULT_DIM_BRIGHTNESS,
+        auto_turn_on: bool = DEFAULT_AUTO_TURN_ON,
+        turn_on_lux_threshold: int = DEFAULT_TURN_ON_LUX_THRESHOLD,
+        motion_debounce: int = DEFAULT_MOTION_DEBOUNCE,
         on_dim_callback: Optional[Callable[[], Any]] = None,
         on_off_callback: Optional[Callable[[], Any]] = None,
         on_restore_manual_callback: Optional[Callable[[Dict[str, Any]], Any]] = None,
@@ -45,6 +56,9 @@ class PresenceManager:
         self.off_timeout = off_timeout
         self.grace_period = grace_period
         self.dim_brightness = dim_brightness
+        self.auto_turn_on = auto_turn_on
+        self.turn_on_lux_threshold = turn_on_lux_threshold
+        self.motion_debounce = motion_debounce
 
         self.on_dim_callback = on_dim_callback
         self.on_off_callback = on_off_callback
@@ -58,6 +72,7 @@ class PresenceManager:
         # Saved manual settings: {entity_id: {"brightness": int, "color_temp": int, "rgb_color": list}}
         self.saved_manual_states: Dict[str, Dict[str, Any]] = {}
 
+        self._debounce_timer_handle: Optional[asyncio.TimerHandle] = None
         self._dim_timer_handle: Optional[asyncio.TimerHandle] = None
         self._off_timer_handle: Optional[asyncio.TimerHandle] = None
         self._unsub_trackers: List[CALLBACK_TYPE] = []
@@ -107,13 +122,48 @@ class PresenceManager:
         """Check if any manual states are saved."""
         return len(self.saved_manual_states) > 0
 
+    def is_sensor_triggered(self, state_obj: Any) -> bool:
+        """Evaluate if an Aqara or standard presence sensor reports occupancy."""
+        if not state_obj:
+            return False
+
+        # Check primary state
+        st = str(state_obj.state).lower()
+        if st in POSITIVE_STATES:
+            return True
+
+        # Check Aqara specific attributes (FP2 zones, PIR motion flag, etc.)
+        attrs = getattr(state_obj, "attributes", {}) or {}
+        for key in OCCUPANCY_ATTRIBUTES:
+            val = attrs.get(key)
+            if val is True or str(val).lower() in ("true", "on", "yes", "1"):
+                return True
+
+        return False
+
     def is_occupied(self) -> bool:
-        """Check if any configured presence sensor is currently reporting 'on'."""
+        """Check if any configured presence sensor is currently triggered."""
         for sensor_id in self.sensors:
             st = self.hass.states.get(sensor_id)
-            if st and st.state in ("on", "open", "detected", "active"):
+            if self.is_sensor_triggered(st):
                 return True
         return False
+
+    def get_ambient_lux(self) -> Optional[float]:
+        """Extract ambient illuminance from Aqara or presence sensor attributes if available."""
+        for sensor_id in self.sensors:
+            st = self.hass.states.get(sensor_id)
+            if not st or not getattr(st, "attributes", None):
+                continue
+            attrs = st.attributes
+            for key in LUX_ATTRIBUTES:
+                val = attrs.get(key)
+                if val is not None:
+                    try:
+                        return float(val)
+                    except (ValueError, TypeError):
+                        pass
+        return None
 
     def _check_initial_sensor_state(self) -> None:
         """Check current sensor state at startup."""
@@ -123,17 +173,17 @@ class PresenceManager:
             self._cancel_timers()
         else:
             self.room_state = STATE_OCCUPIED
-            self._schedule_dim()
+            self._schedule_debounce_or_dim()
 
     def _handle_motion_event(self, event: Event) -> None:
-        """Handle state change from a motion/presence sensor."""
+        """Handle state change from an Aqara or standard motion/presence sensor."""
         new_state = event.data.get("new_state")
         if not new_state:
             return
 
-        is_on = new_state.state in ("on", "open", "detected", "active")
+        is_on = self.is_sensor_triggered(new_state)
         _LOGGER.debug(
-            "PresenceManager: sensor %s changed to %s (is_on=%s)",
+            "PresenceManager: sensor %s (Aqara/Presence) state=%s (is_on=%s)",
             event.data.get("entity_id"),
             new_state.state,
             is_on,
@@ -150,9 +200,9 @@ class PresenceManager:
             if was_empty:
                 self._handle_reoccupancy(now)
         else:
-            # Check if all sensors are now off
+            # When sensor turns off, check if all sensors are now clear
             if not self.is_occupied():
-                self._schedule_dim()
+                self._schedule_debounce_or_dim()
 
     def _handle_reoccupancy(self, now: datetime) -> None:
         """Handle person returning to the room."""
@@ -165,14 +215,24 @@ class PresenceManager:
             # If room was only dimmed but not completely off, user is definitely within grace
             within_grace = True
 
+        # Check if ambient lux is above threshold (e.g. bright sunny kitchen)
+        if self.turn_on_lux_threshold > 0:
+            lux = self.get_ambient_lux()
+            if lux is not None and lux >= self.turn_on_lux_threshold:
+                _LOGGER.info(
+                    "PresenceManager: motion detected but ambient lux (%s) >= threshold (%s). Keeping lights off.",
+                    lux,
+                    self.turn_on_lux_threshold,
+                )
+                return
+
         if within_grace and self.has_manual_state():
             _LOGGER.info(
-                "PresenceManager: room reoccupied within grace period. Restoring manual settings!"
+                "PresenceManager: room reoccupied within grace period. Restoring manual kitchen/room settings!"
             )
             if self.on_restore_manual_callback:
                 self._dispatch_callback(self.on_restore_manual_callback, self.saved_manual_states)
-        else:
-            # Beyond grace period or no manual setting: wipe previous manual memory
+        elif self.auto_turn_on:
             _LOGGER.info(
                 "PresenceManager: room reoccupied. Applying adaptive circadian lighting."
             )
@@ -180,13 +240,32 @@ class PresenceManager:
             if self.on_turn_on_adaptive_callback:
                 self._dispatch_callback(self.on_turn_on_adaptive_callback)
 
+    def _schedule_debounce_or_dim(self) -> None:
+        """Schedule debounce delay to compensate for Aqara PIR blind time before starting dim."""
+        self._cancel_timers()
+        loop = self.hass.loop
+
+        if self.motion_debounce > 0:
+            _LOGGER.debug(
+                "PresenceManager: sensor went off. Waiting debounce buffer of %ss (Aqara blind-time protection).",
+                self.motion_debounce,
+            )
+            self._debounce_timer_handle = loop.call_later(
+                self.motion_debounce, self._schedule_dim
+            )
+        else:
+            self._schedule_dim()
+
     def _schedule_dim(self) -> None:
-        """Schedule staged dimming when room becomes empty."""
+        """Schedule staged dimming when room remains clear after debounce."""
+        if self.is_occupied():
+            return
+
         self._cancel_timers()
         loop = self.hass.loop
         self._dim_timer_handle = loop.call_later(self.dim_timeout, self._trigger_dim)
         _LOGGER.debug(
-            "PresenceManager: room empty. Scheduled dim in %s seconds.",
+            "PresenceManager: room confirmed empty. Scheduled dim in %s seconds.",
             self.dim_timeout,
         )
 
@@ -197,7 +276,7 @@ class PresenceManager:
 
         self.room_state = STATE_DIMMED
         _LOGGER.info(
-            "PresenceManager: room has been empty for %ss. Dimming lights to %s%%.",
+            "PresenceManager: room empty for %ss. Dimming lights to %s%%.",
             self.dim_timeout,
             self.dim_brightness,
         )
@@ -223,7 +302,10 @@ class PresenceManager:
             self._dispatch_callback(self.on_off_callback)
 
     def _cancel_timers(self) -> None:
-        """Cancel dim and off timers."""
+        """Cancel all pending timers."""
+        if self._debounce_timer_handle:
+            self._debounce_timer_handle.cancel()
+            self._debounce_timer_handle = None
         if self._dim_timer_handle:
             self._dim_timer_handle.cancel()
             self._dim_timer_handle = None

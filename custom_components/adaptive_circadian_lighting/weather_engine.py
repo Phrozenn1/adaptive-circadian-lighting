@@ -35,6 +35,7 @@ class WeatherEngine:
         cloud_boost_pct: int = 25,
         cloud_boost_kelvin: int = 600,
         prioritize_lux: bool = True,
+        get_presence_lux_callback: Any = None,
     ) -> None:
         self.hass = hass
         self.weather_entity = weather_entity
@@ -42,6 +43,7 @@ class WeatherEngine:
         self.cloud_boost_pct = cloud_boost_pct
         self.cloud_boost_kelvin = cloud_boost_kelvin
         self.prioritize_lux = prioritize_lux
+        self.get_presence_lux_callback = get_presence_lux_callback
 
     def get_weather_data(self) -> Tuple[str | None, float | None]:
         """Fetch condition and cloud coverage from the weather entity."""
@@ -59,18 +61,19 @@ class WeatherEngine:
         return condition, cloud_coverage_val
 
     def get_lux_reading(self) -> float | None:
-        """Fetch illuminance reading in lux from the lux sensor."""
-        if not self.lux_sensor:
-            return None
+        """Fetch illuminance reading in lux from the lux sensor or presence sensor."""
+        if self.lux_sensor:
+            state = self.hass.states.get(self.lux_sensor)
+            if state and state.state not in ("unknown", "unavailable"):
+                try:
+                    return float(state.state)
+                except (ValueError, TypeError):
+                    pass
 
-        state = self.hass.states.get(self.lux_sensor)
-        if not state or state.state in ("unknown", "unavailable"):
-            return None
+        if self.get_presence_lux_callback:
+            return self.get_presence_lux_callback()
 
-        try:
-            return float(state.state)
-        except (ValueError, TypeError):
-            return None
+        return None
 
     def calculate_boost(
         self, is_daytime: bool

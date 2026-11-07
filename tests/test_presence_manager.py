@@ -17,8 +17,9 @@ from custom_components.adaptive_circadian_lighting.presence_manager import (
 
 
 class MockState:
-    def __init__(self, state: str):
+    def __init__(self, state: str, attributes: dict = None):
         self.state = state
+        self.attributes = attributes or {}
 
 
 class TestPresenceManager(unittest.TestCase):
@@ -91,6 +92,28 @@ class TestPresenceManager(unittest.TestCase):
 
         # Manual state should have been wiped
         self.assertFalse(pm.has_manual_state())
+
+    def test_aqara_presence_attributes_detection(self):
+        # Aqara FP2 / ZHA sensor that has presence or has_target attribute
+        pm = PresenceManager(self.hass, sensors=["binary_sensor.aqara_kitchen"])
+
+        # State is 'off' but FP2 detected presence in attributes
+        mock_fp2 = MockState("off", {"presence": True, "has_target": True})
+        self.hass.states.get.return_value = mock_fp2
+        self.assertTrue(pm.is_occupied())
+
+    def test_aqara_illuminance_extraction(self):
+        # Aqara P1 / FP2 reporting illuminance in attributes
+        pm = PresenceManager(self.hass, sensors=["binary_sensor.aqara_kitchen"])
+        mock_aqara = MockState("on", {"illuminance": 85, "occupancy": True})
+        self.hass.states.get.return_value = mock_aqara
+        self.assertEqual(pm.get_ambient_lux(), 85.0)
+
+    def test_aqara_motion_debounce_schedule(self):
+        pm = PresenceManager(self.hass, sensors=["binary_sensor.aqara_kitchen"], motion_debounce=45)
+        self.hass.states.get.return_value = MockState("off")
+        pm._schedule_debounce_or_dim()
+        self.hass.loop.call_later.assert_called_with(45, pm._schedule_dim)
 
 
 if __name__ == "__main__":
