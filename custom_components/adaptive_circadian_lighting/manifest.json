@@ -2,9 +2,9 @@
   "domain": "adaptive_circadian_lighting",
   "name": "Adaptive Circadian Lighting",
   "version": "1.0.0",
-  "codeowners": ["@kim"],
+  "codeowners": ["@Phrozenn1"],
   "config_flow": true,
-  "documentation": "https://github.com/adaptive-circadian-lighting",
+  "documentation": "https://github.com/Phrozenn1/adaptive-circadian-lighting",
   "dependencies": ["frontend", "http"],
   "iot_class": "calculated",
   "requirements": []
