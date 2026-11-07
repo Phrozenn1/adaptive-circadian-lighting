@@ -64,6 +64,12 @@ CONF_OFF_TIMEOUT = "off_timeout"        # seconds after dimming to turn off
 CONF_GRACE_PERIOD = "grace_period"      # seconds to remember manual settings
 CONF_DIM_BRIGHTNESS = "dim_brightness"  # brightness % during dim phase
 
+# Sleep Schedule Settings
+CONF_SLEEP_SCHEDULE_ENABLE = "sleep_schedule_enable"
+CONF_SLEEP_START_TIME = "sleep_start_time"
+CONF_SLEEP_END_TIME = "sleep_end_time"
+CONF_SLEEP_ENTITY = "sleep_entity"
+
 # Hybrid Anchors
 CONF_MIN_SUNRISE_TIME = "min_sunrise_time"
 CONF_MAX_SUNRISE_TIME = "max_sunrise_time"
@@ -72,6 +78,10 @@ CONF_MAX_SUNSET_TIME = "max_sunset_time"
 
 # Custom Curve Points: list of [hour_float, brightness_pct, kelvin]
 CONF_CURVE_POINTS = "curve_points"
+
+DEFAULT_SLEEP_SCHEDULE_ENABLE = False
+DEFAULT_SLEEP_START_TIME = "23:00:00"
+DEFAULT_SLEEP_END_TIME = "06:30:00"
 
 # Defaults
 DEFAULT_NAME = "Living Room"

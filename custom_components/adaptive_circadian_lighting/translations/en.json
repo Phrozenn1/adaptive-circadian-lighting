@@ -40,7 +40,11 @@
           "dim_timeout": "Dim Timeout (seconds without motion before dimming)",
           "off_timeout": "Off Timeout (seconds after dimming before turning off)",
           "grace_period": "Grace Period (seconds to remember manual settings when re-entering)",
-          "dim_brightness": "Dimmed Brightness Level (%)"
+          "dim_brightness": "Dimmed Brightness Level (%)",
+          "sleep_schedule_enable": "Enable Automatic Sleep Schedule",
+          "sleep_start_time": "Sleep Mode Start Time",
+          "sleep_end_time": "Sleep Mode End Time",
+          "sleep_entity": "External Bedtime / Sleep Sensor (Optional)"
         }
       },
       "limits": {
@@ -54,15 +58,10 @@
           "transition": "Transition Time (seconds)",
           "override_timeout": "Manual Override Timeout (minutes)",
           "anti_glare": "Anti-Glare (Prevent blinding light turn-on)",
-          "presence_enable": "Enable Presence Automation",
-          "presence_sensors": "Motion / Presence Sensors (Aqara, mmWave, etc.)",
-          "auto_turn_on": "Automatically turn on lights on motion",
-          "motion_debounce": "Motion Debounce / Blind-Time Buffer (seconds)",
-          "turn_on_lux_threshold": "Daylight Turn-On Threshold (lux, 0 = always)",
-          "dim_timeout": "Dim Timeout (seconds without motion before dimming)",
-          "off_timeout": "Off Timeout (seconds after dimming before turning off)",
-          "grace_period": "Grace Period (seconds to remember manual settings)",
-          "dim_brightness": "Dimmed Brightness Level (%)"
+          "sleep_schedule_enable": "Enable Automatic Sleep Schedule",
+          "sleep_start_time": "Sleep Mode Start Time",
+          "sleep_end_time": "Sleep Mode End Time",
+          "sleep_entity": "External Bedtime / Sleep Sensor (Optional)"
         }
       }
     }
@@ -92,7 +91,11 @@
           "dim_timeout": "Dim Timeout (seconds without motion before dimming)",
           "off_timeout": "Off Timeout (seconds after dimming before turning off)",
           "grace_period": "Grace Period (seconds to remember manual settings)",
-          "dim_brightness": "Dimmed Brightness Level (%)"
+          "dim_brightness": "Dimmed Brightness Level (%)",
+          "sleep_schedule_enable": "Enable Automatic Sleep Schedule",
+          "sleep_start_time": "Sleep Mode Start Time",
+          "sleep_end_time": "Sleep Mode End Time",
+          "sleep_entity": "External Bedtime / Sleep Sensor (Optional)"
         }
       }
     }

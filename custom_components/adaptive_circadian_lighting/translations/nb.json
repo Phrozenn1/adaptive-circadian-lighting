@@ -40,7 +40,11 @@
           "dim_timeout": "Dimmetid (sekunder uten bevegelse før dimming)",
           "off_timeout": "Av-tid (sekunder etter dimming før lyset slås helt av)",
           "grace_period": "Grace-periode (sekunder manuell innstilling huskes ved kort fravær)",
-          "dim_brightness": "Dimmet lysstyrke (%)"
+          "dim_brightness": "Dimmet lysstyrke (%)",
+          "sleep_schedule_enable": "Aktiver automatisk nattmodus-tidsplan",
+          "sleep_start_time": "Start nattmodus (klokkeslett)",
+          "sleep_end_time": "Avslutt nattmodus (klokkeslett)",
+          "sleep_entity": "Ekstern søvnsensor eller hjelper (valgfri)"
         }
       },
       "limits": {
@@ -54,15 +58,10 @@
           "transition": "Overgangstid (sekunder)",
           "override_timeout": "Tidsavbrudd for manuell overstyring (minutter)",
           "anti_glare": "Anti-blending (hindrer sjokkblits ved natt-innkobling)",
-          "presence_enable": "Aktiver bevegelsesstyring",
-          "presence_sensors": "Bevegelses- / Tilstedeværelsessensorer (Aqara, mmWave, etc.)",
-          "auto_turn_on": "Slå på lys automatisk ved bevegelse",
-          "motion_debounce": "Bevegelses-buffer (sekunder, hindrer for rask dimming på Aqara)",
-          "turn_on_lux_threshold": "Dagslysgrense for automatisk påslåing (lux, 0 = alltid)",
-          "dim_timeout": "Dimmetid (sekunder uten bevegelse før dimming)",
-          "off_timeout": "Av-tid (sekunder etter dimming før lyset slås helt av)",
-          "grace_period": "Grace-periode (sekunder manuell innstilling huskes ved fravær)",
-          "dim_brightness": "Dimmet lysstyrke (%)"
+          "sleep_schedule_enable": "Aktiver automatisk nattmodus-tidsplan",
+          "sleep_start_time": "Start nattmodus (klokkeslett)",
+          "sleep_end_time": "Avslutt nattmodus (klokkeslett)",
+          "sleep_entity": "Ekstern søvnsensor eller hjelper (valgfri)"
         }
       }
     }
@@ -92,7 +91,11 @@
           "dim_timeout": "Dimmetid (sekunder uten bevegelse før dimming)",
           "off_timeout": "Av-tid (sekunder etter dimming før lyset slås helt av)",
           "grace_period": "Grace-periode (sekunder manuell innstilling huskes ved fravær)",
-          "dim_brightness": "Dimmet lysstyrke (%)"
+          "dim_brightness": "Dimmet lysstyrke (%)",
+          "sleep_schedule_enable": "Aktiver automatisk nattmodus-tidsplan",
+          "sleep_start_time": "Start nattmodus (klokkeslett)",
+          "sleep_end_time": "Avslutt nattmodus (klokkeslett)",
+          "sleep_entity": "Ekstern søvnsensor eller hjelper (valgfri)"
         }
       }
     }

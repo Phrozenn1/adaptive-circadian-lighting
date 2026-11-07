@@ -49,7 +49,12 @@ The integration, options flow, entities, and UI cards automatically adapt to you
   - *Turn-Off Phase:* Completely powers off lights after an additional timeout (e.g. 2 minutes).
 - **Grace Period (Short Departures):** If someone leaves temporarily (e.g. to fetch a coffee) and returns within the grace window (e.g. 15 minutes), **their manual lighting setting is immediately restored**! Beyond the grace period, lights cleanly turn back on with adaptive circadian lighting.
 
-### 5. Interactive GUI & Lovelace Card
+### 5. Automated Sleep Schedule & Bedtime Sensor
+- **Built-in Schedule:** Automatically activates Sleep Mode during your preferred bedtime window (e.g. 23:00 to 06:30) and seamlessly transitions back to normal circadian lighting in the morning, eliminating the need for extra Home Assistant automations.
+- **Midnight Wrap-Around:** Fully supports schedules spanning across midnight.
+- **External Bedtime Sensor:** Link optional sleep tracking sensors (e.g. `input_boolean.sleep_mode`, phone charger, or smart mattress) to dynamically synchronize Sleep Mode.
+
+### 6. Interactive GUI & Lovelace Card
 - **Lovelace Custom Card (`adaptive-circadian-card`):**
   - Interactive SVG 24h curve with day/night zones and live "NOW" indicator.
   - One-click profile chips: `Normal`, `Sleep`, `Morning`, `Evening`, `Focus`, `Relax`.
@@ -123,6 +128,7 @@ python3 -m unittest discover tests
 - **Hybrid solmodell:** Aldri fullt dagslys før kl. 06:30, og garantert kveldslys senest 21:30 selv om sommeren.
 - **Værkompensering (Cloud Boost):** Henter værdata fra `weather.*` og øker automatisk lysstyrken (+25 %) på mørke og overskyede dager.
 - **Bevegelsessensor med minne:** Lyset dimmes i 2 trinn når rommet er tomt, og husker manuelle innstillinger dersom du forlater rommet en kort stund (f.eks. henter en kaffe).
+- **Innebygd Tidsplan for Nattmodus:** Angi faste klokkeslett for nattmodus (f.eks. 23:00 til 06:30) og koble eventuelt til en søvnsensor, helt uten å måtte opprette egne automasjoner i Home Assistant.
 - **Anti-blending:** Pærer tennes direkte i dempet nattlys uten sjokkblits.
 - **Innebygd GUI:** Interaktivt Lovelace Dashboard-kort og dedikert sidepanel i Home Assistant.
 </details>

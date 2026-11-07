@@ -33,6 +33,10 @@ from .const import (
     CONF_PRESENCE_ENABLE,
     CONF_PRESENCE_SENSORS,
     CONF_PRIORITIZE_LUX,
+    CONF_SLEEP_END_TIME,
+    CONF_SLEEP_ENTITY,
+    CONF_SLEEP_SCHEDULE_ENABLE,
+    CONF_SLEEP_START_TIME,
     CONF_TRANSITION,
     CONF_TURN_ON_LUX_THRESHOLD,
     CONF_WEATHER_ENTITY,
@@ -54,6 +58,9 @@ from .const import (
     DEFAULT_OFF_TIMEOUT,
     DEFAULT_OVERRIDE_TIMEOUT,
     DEFAULT_PRIORITIZE_LUX,
+    DEFAULT_SLEEP_END_TIME,
+    DEFAULT_SLEEP_SCHEDULE_ENABLE,
+    DEFAULT_SLEEP_START_TIME,
     DEFAULT_TRANSITION,
     DEFAULT_TURN_ON_LUX_THRESHOLD,
     DOMAIN,
@@ -202,11 +209,16 @@ class AdaptiveCircadianConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     selector.NumberSelectorConfig(min=0, max=480, step=5, unit_of_measurement="min")
                 ),
                 vol.Required(CONF_ANTI_GLARE, default=True): bool,
+                vol.Required(CONF_SLEEP_SCHEDULE_ENABLE, default=DEFAULT_SLEEP_SCHEDULE_ENABLE): bool,
+                vol.Required(CONF_SLEEP_START_TIME, default=DEFAULT_SLEEP_START_TIME): selector.TimeSelector(),
+                vol.Required(CONF_SLEEP_END_TIME, default=DEFAULT_SLEEP_END_TIME): selector.TimeSelector(),
+                vol.Optional(CONF_SLEEP_ENTITY): selector.EntitySelector(
+                    selector.EntitySelectorConfig(domain=["input_boolean", "binary_sensor"])
+                ),
             }
         )
         return self.async_show_form(step_id="limits", data_schema=schema, errors=errors)
 
-    @staticmethod
     @staticmethod
     @callback
     def async_get_options_flow(
@@ -296,6 +308,12 @@ class AdaptiveCircadianOptionsFlow(config_entries.OptionsFlow):
             ),
             vol.Required(CONF_DIM_BRIGHTNESS, default=current.get(CONF_DIM_BRIGHTNESS, DEFAULT_DIM_BRIGHTNESS)): selector.NumberSelector(
                 selector.NumberSelectorConfig(min=1, max=30, step=1, unit_of_measurement="%")
+            ),
+            vol.Required(CONF_SLEEP_SCHEDULE_ENABLE, default=current.get(CONF_SLEEP_SCHEDULE_ENABLE, DEFAULT_SLEEP_SCHEDULE_ENABLE)): bool,
+            vol.Required(CONF_SLEEP_START_TIME, default=current.get(CONF_SLEEP_START_TIME, DEFAULT_SLEEP_START_TIME)): selector.TimeSelector(),
+            vol.Required(CONF_SLEEP_END_TIME, default=current.get(CONF_SLEEP_END_TIME, DEFAULT_SLEEP_END_TIME)): selector.TimeSelector(),
+            vol.Optional(CONF_SLEEP_ENTITY): selector.EntitySelector(
+                selector.EntitySelectorConfig(domain=["input_boolean", "binary_sensor"])
             ),
         }
 

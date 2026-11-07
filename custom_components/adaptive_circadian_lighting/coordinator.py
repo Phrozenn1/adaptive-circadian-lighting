@@ -48,6 +48,10 @@ from .const import (
     CONF_PRESENCE_ENABLE,
     CONF_PRESENCE_SENSORS,
     CONF_PRIORITIZE_LUX,
+    CONF_SLEEP_END_TIME,
+    CONF_SLEEP_ENTITY,
+    CONF_SLEEP_SCHEDULE_ENABLE,
+    CONF_SLEEP_START_TIME,
     CONF_TRANSITION,
     CONF_TURN_ON_LUX_THRESHOLD,
     CONF_WEATHER_ENTITY,
@@ -69,6 +73,9 @@ from .const import (
     DEFAULT_MOTION_DEBOUNCE,
     DEFAULT_OFF_TIMEOUT,
     DEFAULT_OVERRIDE_TIMEOUT,
+    DEFAULT_SLEEP_END_TIME,
+    DEFAULT_SLEEP_SCHEDULE_ENABLE,
+    DEFAULT_SLEEP_START_TIME,
     DEFAULT_TRANSITION,
     DEFAULT_TURN_ON_LUX_THRESHOLD,
     PROFILE_NORMAL,
@@ -158,7 +165,13 @@ class AdaptiveCoordinator:
             get_presence_lux_callback=lambda: self.presence_mgr.get_ambient_lux() if self.presence_mgr else None,
         )
 
-        self.profile_mgr = ProfileManager()
+        self.profile_mgr = ProfileManager(
+            sleep_schedule_enable=entry.data.get(CONF_SLEEP_SCHEDULE_ENABLE, DEFAULT_SLEEP_SCHEDULE_ENABLE),
+            sleep_start_time=entry.data.get(CONF_SLEEP_START_TIME, DEFAULT_SLEEP_START_TIME),
+            sleep_end_time=entry.data.get(CONF_SLEEP_END_TIME, DEFAULT_SLEEP_END_TIME),
+        )
+        self.sleep_entity: Optional[str] = entry.data.get(CONF_SLEEP_ENTITY)
+        self._unsub_sleep_entity: Optional[Callable[[], None]] = None
 
         self.override_mgr = OverrideManager(
             hass,
@@ -186,6 +199,12 @@ class AdaptiveCoordinator:
             self.presence_mgr.start_tracking()
         self.anti_glare.start()
 
+        if self.sleep_entity:
+            from homeassistant.helpers.event import async_track_state_change_event
+            self._unsub_sleep_entity = async_track_state_change_event(
+                self.hass, [self.sleep_entity], self._handle_sleep_entity_change
+            )
+
         # Initial calculation
         self._calculate_target_values()
 
@@ -200,6 +219,9 @@ class AdaptiveCoordinator:
         if self._unsub_interval:
             self._unsub_interval()
             self._unsub_interval = None
+        if self._unsub_sleep_entity:
+            self._unsub_sleep_entity()
+            self._unsub_sleep_entity = None
         self.override_mgr.stop_tracking()
         if self.presence_mgr:
             self.presence_mgr.stop_tracking()
@@ -228,10 +250,31 @@ class AdaptiveCoordinator:
                 return None
         return None
 
+    def _handle_sleep_entity_change(self, event: Any) -> None:
+        """Handle state change of external sleep entity."""
+        new_state = event.data.get("new_state")
+        if not new_state:
+            return
+        is_sleep = new_state.state in ("on", "true", "True", "detected", "active", "sleeping", "home")
+        if is_sleep:
+            self.profile_mgr.set_profile(PROFILE_SLEEP)
+        else:
+            if self.profile_mgr.is_sleep():
+                self.profile_mgr.set_profile(PROFILE_NORMAL)
+        self._calculate_target_values()
+        self._notify_listeners()
+
     def _calculate_target_values(self) -> None:
-        """Calculate desired brightness and Kelvin based on mode, weather and profiles."""
+        """Calculate desired brightness and Kelvin based on mode, weather, schedule and profiles."""
         now = datetime.now()
         elevation = self._get_solar_elevation()
+
+        # Evaluate automatic sleep schedule
+        if self.profile_mgr.evaluate_schedule(now.time()):
+            _LOGGER.debug(
+                "AdaptiveCoordinator: sleep schedule switched profile to %s",
+                self.profile_mgr.active_profile,
+            )
 
         # 1. Profile override check
         profile_override = self.profile_mgr.get_profile_override()
