@@ -8,6 +8,8 @@ jobs:
   release:
     name: Package HACS Release Asset
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -15,7 +17,7 @@ jobs:
       - name: Create zip archive
         run: |
           cd custom_components/adaptive_circadian_lighting
-          zip -r ../../adaptive_circadian_lighting.zip .
+          zip -r ../../adaptive_circadian_lighting.zip . -x "*__pycache__*" -x "*.pyc"
           cd ../..
 
       - name: Upload zip to release
