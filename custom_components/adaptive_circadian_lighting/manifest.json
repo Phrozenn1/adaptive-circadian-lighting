@@ -1,0 +1,11 @@
+{
+  "domain": "adaptive_circadian_lighting",
+  "name": "Adaptive Circadian Lighting",
+  "version": "1.0.0",
+  "codeowners": ["@kim"],
+  "config_flow": true,
+  "documentation": "https://github.com/adaptive-circadian-lighting",
+  "dependencies": ["frontend", "http"],
+  "iot_class": "calculated",
+  "requirements": []
+}

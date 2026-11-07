@@ -1,0 +1,75 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Adaptive Circadian Lighting - Room Setup",
+        "description": "Configure a new circadian lighting zone.",
+        "data": {
+          "name": "Room / Zone Name",
+          "lights": "Lights"
+        }
+      },
+      "modes": {
+        "title": "Calculation and Color Mode",
+        "description": "Select how the curve is calculated and how color is transmitted to the lights.",
+        "data": {
+          "calc_mode": "Calculation Mode",
+          "color_mode": "Color Mode"
+        }
+      },
+      "weather": {
+        "title": "Weather & Lux Compensation",
+        "description": "Compensate for cloudy and rainy days using weather forecasts or physical lux sensors.",
+        "data": {
+          "weather_entity": "Weather Entity",
+          "lux_sensor": "Illuminance (Lux) Sensor",
+          "prioritize_lux": "Prioritize Physical Lux Sensor over Weather Forecast",
+          "cloud_boost_pct": "Cloud Boost Brightness (+%)",
+          "cloud_boost_kelvin": "Cloud Boost Color Temp (+K)"
+        }
+      },
+      "presence": {
+        "title": "Presence & Motion Automation",
+        "description": "Automatically dim and turn off lights when room is empty, with memory for manual adjustments.",
+        "data": {
+          "presence_enable": "Enable Presence Automation",
+          "presence_sensors": "Motion / Presence Sensors",
+          "dim_timeout": "Dim Timeout (seconds without motion before dimming)",
+          "off_timeout": "Off Timeout (seconds after dimming before turning off)",
+          "grace_period": "Grace Period (seconds to remember manual settings when re-entering)",
+          "dim_brightness": "Dimmed Brightness Level (%)"
+        }
+      },
+      "limits": {
+        "title": "Limits & Thresholds",
+        "description": "Set brightness and color temperature boundaries.",
+        "data": {
+          "min_brightness": "Minimum Brightness (%)",
+          "max_brightness": "Maximum Brightness (%)",
+          "min_color_temp": "Minimum Color Temperature (Warm Kelvin)",
+          "max_color_temp": "Maximum Color Temperature (Cool Kelvin)",
+          "transition": "Transition Time (seconds)",
+          "override_timeout": "Manual Override Timeout (minutes)",
+          "anti_glare": "Anti-Glare (Prevent blinding light turn-on)"
+        }
+      }
+    }
+  },
+  "selector": {
+    "calc_modes": {
+      "options": {
+        "sun": "Pure Sun Position (Astral)",
+        "hybrid": "Hybrid (Sun with Fixed Time Anchors)",
+        "curve": "Custom 24h Curve (Spline)",
+        "lux": "Weather / Lux Compensated"
+      }
+    },
+    "color_modes": {
+      "options": {
+        "kelvin": "Color Temperature (Kelvin)",
+        "rgb": "RGB Color",
+        "auto": "Auto / Hybrid (Kelvin by day, deep RGB by night)"
+      }
+    }
+  }
+}

@@ -1,0 +1,43 @@
+apply_now:
+  name: Apply Now
+  description: Immediately calculate and apply adaptive lighting settings to lights.
+  fields:
+    entity_id:
+      name: Light Entity
+      description: Optional specific light entity to apply settings to.
+      selector:
+        entity:
+          domain: light
+
+reset_manual_override:
+  name: Reset Manual Override
+  description: Reset manual overrides and resume automatic adaptive control.
+  fields:
+    entity_id:
+      name: Light Entity
+      description: Specific light to reset (resets all if omitted).
+      selector:
+        entity:
+          domain: light
+
+set_profile:
+  name: Set Profile
+  description: Activate a lighting profile (e.g. Normal, Sleep, Morning, Evening, Focus, Relax).
+  fields:
+    profile:
+      name: Profile
+      description: The profile name to activate.
+      required: true
+      selector:
+        select:
+          options:
+            - normal
+            - sleep
+            - morning
+            - evening
+            - focus
+            - relax
+
+toggle_sleep_mode:
+  name: Toggle Sleep Mode
+  description: Toggle sleep mode on or off.

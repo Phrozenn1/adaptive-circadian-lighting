@@ -1,0 +1,75 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Adaptiv Døgnrytmelys - Oppsett av Rom",
+        "description": "Konfigurer en ny adaptiv lyssone for et rom.",
+        "data": {
+          "name": "Navn på Rom / Sone",
+          "lights": "Lamper / Lysgrupper"
+        }
+      },
+      "modes": {
+        "title": "Beregningsmodell og Fargemodus",
+        "description": "Velg hvordan døgnkurven skal beregnes og hvordan farge sendes til lampene.",
+        "data": {
+          "calc_mode": "Beregningsmodell",
+          "color_mode": "Fargemodus"
+        }
+      },
+      "weather": {
+        "title": "Vær- og Skydekke-kompensering",
+        "description": "Kompenser for overskyede og grå dager ved hjelp av værmelding eller en fysisk lysmåler.",
+        "data": {
+          "weather_entity": "Værentitet",
+          "lux_sensor": "Lysmåler (Lux-sensor)",
+          "prioritize_lux": "Prioriter fysisk lysmåler foran værmelding",
+          "cloud_boost_pct": "Skydekke-boost lysstyrke (+%)",
+          "cloud_boost_kelvin": "Skydekke-boost fargetemperatur (+K)"
+        }
+      },
+      "presence": {
+        "title": "Tilstedeværelse og Bevegelsesstyring",
+        "description": "Automatisk 2-trinns dimming og avskruing ved tomt rom, med minne for manuelle innstillinger.",
+        "data": {
+          "presence_enable": "Aktiver bevegelsesstyring",
+          "presence_sensors": "Bevegelses- / Tilstedeværelsessensorer",
+          "dim_timeout": "Dimmetid (sekunder uten bevegelse før dimming)",
+          "off_timeout": "Av-tid (sekunder etter dimming før lyset slås helt av)",
+          "grace_period": "Grace-periode (sekunder manuell innstilling huskes ved kort fravær)",
+          "dim_brightness": "Dimmet lysstyrke (%)"
+        }
+      },
+      "limits": {
+        "title": "Grenseverdier og Overganger",
+        "description": "Angi min/maks lysstyrke og fargetemperatur samt overgangstider.",
+        "data": {
+          "min_brightness": "Minimum lysstyrke (%)",
+          "max_brightness": "Maksimum lysstyrke (%)",
+          "min_color_temp": "Varmeste fargetemperatur (Kelvin)",
+          "max_color_temp": "Kaldeste fargetemperatur (Kelvin)",
+          "transition": "Overgangstid (sekunder)",
+          "override_timeout": "Tidsavbrudd for manuell overstyring (minutter)",
+          "anti_glare": "Anti-blending (hindrer sjokkblits ved natt-innkobling)"
+        }
+      }
+    }
+  },
+  "selector": {
+    "calc_modes": {
+      "options": {
+        "sun": "Ren Solposisjon (Astral)",
+        "hybrid": "Hybrid (Sol med Faste Tidsankere)",
+        "curve": "Egendefinert 24t Kurve (Spline)",
+        "lux": "Vær- og Lux-kompensert"
+      }
+    },
+    "color_modes": {
+      "options": {
+        "kelvin": "Fargetemperatur (Kelvin)",
+        "rgb": "RGB-farge",
+        "auto": "Auto / Hybrid (Kelvin om dagen, dyp RGB om natten)"
+      }
+    }
+  }
+}
