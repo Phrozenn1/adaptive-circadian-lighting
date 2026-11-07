@@ -207,82 +207,102 @@ class AdaptiveCircadianConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(step_id="limits", data_schema=schema, errors=errors)
 
     @staticmethod
+    @staticmethod
     @callback
-    def async_get_options_flow(config_entry):
-        return AdaptiveCircadianOptionsFlow(config_entry)
+    def async_get_options_flow(
+        config_entry: config_entries.ConfigEntry,
+    ) -> config_entries.OptionsFlow:
+        """Create the options flow."""
+        return AdaptiveCircadianOptionsFlow()
 
 
 class AdaptiveCircadianOptionsFlow(config_entries.OptionsFlow):
     """Handle options flow for Adaptive Circadian Lighting."""
 
-    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
-        self.config_entry = config_entry
+    def __init__(self, config_entry: config_entries.ConfigEntry | None = None) -> None:
+        """Initialize options flow supporting both new and legacy HA core."""
+        if config_entry is not None:
+            self._custom_entry = config_entry
+
+    @property
+    def _entry(self) -> config_entries.ConfigEntry:
+        """Get config entry supporting both new and older HA core."""
+        try:
+            return self.config_entry
+        except (AttributeError, KeyError):
+            return getattr(self, "_custom_entry", None)
 
     async def async_step_init(self, user_input=None):
         """Manage the options menu."""
+        entry = self._entry
         if user_input is not None:
-            # Update config entry data
-            new_data = {**self.config_entry.data, **user_input}
-            self.hass.config_entries.async_update_entry(self.config_entry, data=new_data)
-            return self.async_create_entry(title="", data={})
+            # Update config entry data directly so coordinator gets new settings
+            new_data = {**entry.data, **user_input}
+            self.hass.config_entries.async_update_entry(entry, data=new_data)
+            return self.async_create_entry(title="", data=user_input)
 
-        current = self.config_entry.data
-        schema = vol.Schema(
-            {
-                vol.Required(CONF_LIGHTS, default=current.get(CONF_LIGHTS, [])): selector.EntitySelector(
-                    selector.EntitySelectorConfig(domain="light", multiple=True)
-                ),
-                vol.Required(CONF_CALC_MODE, default=current.get(CONF_CALC_MODE, DEFAULT_CALC_MODE)): selector.SelectSelector(
-                    selector.SelectSelectorConfig(options=CALC_MODES, mode=selector.SelectSelectorMode.DROPDOWN)
-                ),
-                vol.Required(CONF_COLOR_MODE, default=current.get(CONF_COLOR_MODE, DEFAULT_COLOR_MODE)): selector.SelectSelector(
-                    selector.SelectSelectorConfig(options=COLOR_MODES, mode=selector.SelectSelectorMode.DROPDOWN)
-                ),
-                vol.Optional(CONF_WEATHER_ENTITY, default=current.get(CONF_WEATHER_ENTITY)): selector.EntitySelector(
-                    selector.EntitySelectorConfig(domain="weather")
-                ),
-                vol.Optional(CONF_LUX_SENSOR, default=current.get(CONF_LUX_SENSOR)): selector.EntitySelector(
-                    selector.EntitySelectorConfig(domain="sensor", device_class="illuminance")
-                ),
-                vol.Required(CONF_MIN_BRIGHTNESS, default=current.get(CONF_MIN_BRIGHTNESS, DEFAULT_MIN_BRIGHTNESS)): selector.NumberSelector(
-                    selector.NumberSelectorConfig(min=1, max=100, step=1, unit_of_measurement="%")
-                ),
-                vol.Required(CONF_MAX_BRIGHTNESS, default=current.get(CONF_MAX_BRIGHTNESS, DEFAULT_MAX_BRIGHTNESS)): selector.NumberSelector(
-                    selector.NumberSelectorConfig(min=1, max=100, step=1, unit_of_measurement="%")
-                ),
-                vol.Required(CONF_MIN_COLOR_TEMP, default=current.get(CONF_MIN_COLOR_TEMP, DEFAULT_MIN_COLOR_TEMP)): selector.NumberSelector(
-                    selector.NumberSelectorConfig(min=1000, max=4000, step=100, unit_of_measurement="K")
-                ),
-                vol.Required(CONF_MAX_COLOR_TEMP, default=current.get(CONF_MAX_COLOR_TEMP, DEFAULT_MAX_COLOR_TEMP)): selector.NumberSelector(
-                    selector.NumberSelectorConfig(min=3000, max=10000, step=100, unit_of_measurement="K")
-                ),
-                vol.Required(CONF_OVERRIDE_TIMEOUT, default=current.get(CONF_OVERRIDE_TIMEOUT, DEFAULT_OVERRIDE_TIMEOUT)): selector.NumberSelector(
-                    selector.NumberSelectorConfig(min=0, max=480, step=5, unit_of_measurement="min")
-                ),
-                vol.Required(CONF_ANTI_GLARE, default=current.get(CONF_ANTI_GLARE, True)): bool,
-                vol.Required(CONF_PRESENCE_ENABLE, default=current.get(CONF_PRESENCE_ENABLE, False)): bool,
-                vol.Optional(CONF_PRESENCE_SENSORS, default=current.get(CONF_PRESENCE_SENSORS, [])): selector.EntitySelector(
-                    selector.EntitySelectorConfig(domain="binary_sensor", multiple=True)
-                ),
-                vol.Required(CONF_AUTO_TURN_ON, default=current.get(CONF_AUTO_TURN_ON, DEFAULT_AUTO_TURN_ON)): bool,
-                vol.Required(CONF_MOTION_DEBOUNCE, default=current.get(CONF_MOTION_DEBOUNCE, DEFAULT_MOTION_DEBOUNCE)): selector.NumberSelector(
-                    selector.NumberSelectorConfig(min=0, max=180, step=5, unit_of_measurement="s")
-                ),
-                vol.Required(CONF_TURN_ON_LUX_THRESHOLD, default=current.get(CONF_TURN_ON_LUX_THRESHOLD, DEFAULT_TURN_ON_LUX_THRESHOLD)): selector.NumberSelector(
-                    selector.NumberSelectorConfig(min=0, max=1000, step=25, unit_of_measurement="lx")
-                ),
-                vol.Required(CONF_DIM_TIMEOUT, default=current.get(CONF_DIM_TIMEOUT, DEFAULT_DIM_TIMEOUT)): selector.NumberSelector(
-                    selector.NumberSelectorConfig(min=10, max=1800, step=10, unit_of_measurement="s")
-                ),
-                vol.Required(CONF_OFF_TIMEOUT, default=current.get(CONF_OFF_TIMEOUT, DEFAULT_OFF_TIMEOUT)): selector.NumberSelector(
-                    selector.NumberSelectorConfig(min=10, max=1800, step=10, unit_of_measurement="s")
-                ),
-                vol.Required(CONF_GRACE_PERIOD, default=current.get(CONF_GRACE_PERIOD, DEFAULT_GRACE_PERIOD)): selector.NumberSelector(
-                    selector.NumberSelectorConfig(min=60, max=3600, step=60, unit_of_measurement="s")
-                ),
-                vol.Required(CONF_DIM_BRIGHTNESS, default=current.get(CONF_DIM_BRIGHTNESS, DEFAULT_DIM_BRIGHTNESS)): selector.NumberSelector(
-                    selector.NumberSelectorConfig(min=1, max=30, step=1, unit_of_measurement="%")
-                ),
-            }
-        )
+        current = {**entry.data, **entry.options}
+        schema_dict = {
+            vol.Required(CONF_LIGHTS, default=current.get(CONF_LIGHTS, [])): selector.EntitySelector(
+                selector.EntitySelectorConfig(domain="light", multiple=True)
+            ),
+            vol.Required(CONF_CALC_MODE, default=current.get(CONF_CALC_MODE, DEFAULT_CALC_MODE)): selector.SelectSelector(
+                selector.SelectSelectorConfig(options=CALC_MODES, mode=selector.SelectSelectorMode.DROPDOWN)
+            ),
+            vol.Required(CONF_COLOR_MODE, default=current.get(CONF_COLOR_MODE, DEFAULT_COLOR_MODE)): selector.SelectSelector(
+                selector.SelectSelectorConfig(options=COLOR_MODES, mode=selector.SelectSelectorMode.DROPDOWN)
+            ),
+            vol.Optional(CONF_WEATHER_ENTITY): selector.EntitySelector(
+                selector.EntitySelectorConfig(domain="weather")
+            ),
+            vol.Optional(CONF_LUX_SENSOR): selector.EntitySelector(
+                selector.EntitySelectorConfig(domain="sensor", device_class="illuminance")
+            ),
+            vol.Required(CONF_MIN_BRIGHTNESS, default=current.get(CONF_MIN_BRIGHTNESS, DEFAULT_MIN_BRIGHTNESS)): selector.NumberSelector(
+                selector.NumberSelectorConfig(min=1, max=100, step=1, unit_of_measurement="%")
+            ),
+            vol.Required(CONF_MAX_BRIGHTNESS, default=current.get(CONF_MAX_BRIGHTNESS, DEFAULT_MAX_BRIGHTNESS)): selector.NumberSelector(
+                selector.NumberSelectorConfig(min=1, max=100, step=1, unit_of_measurement="%")
+            ),
+            vol.Required(CONF_MIN_COLOR_TEMP, default=current.get(CONF_MIN_COLOR_TEMP, DEFAULT_MIN_COLOR_TEMP)): selector.NumberSelector(
+                selector.NumberSelectorConfig(min=1000, max=4000, step=100, unit_of_measurement="K")
+            ),
+            vol.Required(CONF_MAX_COLOR_TEMP, default=current.get(CONF_MAX_COLOR_TEMP, DEFAULT_MAX_COLOR_TEMP)): selector.NumberSelector(
+                selector.NumberSelectorConfig(min=3000, max=10000, step=100, unit_of_measurement="K")
+            ),
+            vol.Required(CONF_OVERRIDE_TIMEOUT, default=current.get(CONF_OVERRIDE_TIMEOUT, DEFAULT_OVERRIDE_TIMEOUT)): selector.NumberSelector(
+                selector.NumberSelectorConfig(min=0, max=480, step=5, unit_of_measurement="min")
+            ),
+            vol.Required(CONF_ANTI_GLARE, default=current.get(CONF_ANTI_GLARE, True)): bool,
+            vol.Required(CONF_PRESENCE_ENABLE, default=current.get(CONF_PRESENCE_ENABLE, False)): bool,
+            vol.Optional(CONF_PRESENCE_SENSORS): selector.EntitySelector(
+                selector.EntitySelectorConfig(domain="binary_sensor", multiple=True)
+            ),
+            vol.Required(CONF_AUTO_TURN_ON, default=current.get(CONF_AUTO_TURN_ON, DEFAULT_AUTO_TURN_ON)): bool,
+            vol.Required(CONF_MOTION_DEBOUNCE, default=current.get(CONF_MOTION_DEBOUNCE, DEFAULT_MOTION_DEBOUNCE)): selector.NumberSelector(
+                selector.NumberSelectorConfig(min=0, max=180, step=5, unit_of_measurement="s")
+            ),
+            vol.Required(CONF_TURN_ON_LUX_THRESHOLD, default=current.get(CONF_TURN_ON_LUX_THRESHOLD, DEFAULT_TURN_ON_LUX_THRESHOLD)): selector.NumberSelector(
+                selector.NumberSelectorConfig(min=0, max=1000, step=25, unit_of_measurement="lx")
+            ),
+            vol.Required(CONF_DIM_TIMEOUT, default=current.get(CONF_DIM_TIMEOUT, DEFAULT_DIM_TIMEOUT)): selector.NumberSelector(
+                selector.NumberSelectorConfig(min=10, max=1800, step=10, unit_of_measurement="s")
+            ),
+            vol.Required(CONF_OFF_TIMEOUT, default=current.get(CONF_OFF_TIMEOUT, DEFAULT_OFF_TIMEOUT)): selector.NumberSelector(
+                selector.NumberSelectorConfig(min=10, max=1800, step=10, unit_of_measurement="s")
+            ),
+            vol.Required(CONF_GRACE_PERIOD, default=current.get(CONF_GRACE_PERIOD, DEFAULT_GRACE_PERIOD)): selector.NumberSelector(
+                selector.NumberSelectorConfig(min=60, max=3600, step=60, unit_of_measurement="s")
+            ),
+            vol.Required(CONF_DIM_BRIGHTNESS, default=current.get(CONF_DIM_BRIGHTNESS, DEFAULT_DIM_BRIGHTNESS)): selector.NumberSelector(
+                selector.NumberSelectorConfig(min=1, max=30, step=1, unit_of_measurement="%")
+            ),
+        }
+
+        base_schema = vol.Schema(schema_dict)
+        try:
+            schema = self.add_suggested_values_to_schema(base_schema, current)
+        except Exception:
+            schema = base_schema
+
         return self.async_show_form(step_id="init", data_schema=schema)
