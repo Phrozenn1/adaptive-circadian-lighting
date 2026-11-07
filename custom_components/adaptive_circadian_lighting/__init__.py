@@ -133,15 +133,29 @@ async def _async_register_panel(hass: HomeAssistant) -> None:
 
 def _register_services(hass: HomeAssistant) -> None:
     """Register component services."""
+    def _matches_coord(coord: AdaptiveCoordinator, entity_id: str | None) -> bool:
+        if not entity_id:
+            return True
+        if entity_id in coord.lights:
+            return True
+        clean = (
+            entity_id.replace("switch.", "")
+            .replace("sensor.", "")
+            .replace("select.", "")
+            .replace("_adaptation", "")
+            .replace("_profile", "")
+            .replace("_sleep_mode", "")
+            .lower()
+        )
+        coord_slug = coord.entry.title.lower().replace(" ", "_").replace("-", "_")
+        return clean in coord_slug or coord_slug in clean
+
     async def handle_apply_now(call: ServiceCall) -> None:
         entity_id = call.data.get("entity_id")
         for coord in hass.data[DOMAIN].values():
             if not isinstance(coord, AdaptiveCoordinator):
                 continue
-            if entity_id:
-                if entity_id in coord.lights:
-                    await coord._async_apply_to_light(entity_id)
-            else:
+            if _matches_coord(coord, entity_id):
                 await coord._async_periodic_update()
 
     async def handle_reset_override(call: ServiceCall) -> None:
@@ -149,19 +163,28 @@ def _register_services(hass: HomeAssistant) -> None:
         for coord in hass.data[DOMAIN].values():
             if not isinstance(coord, AdaptiveCoordinator):
                 continue
-            coord.override_mgr.reset_override(entity_id)
+            if _matches_coord(coord, entity_id):
+                target_light = entity_id if (entity_id and entity_id in coord.lights) else None
+                coord.override_mgr.reset_override(target_light)
+                await coord._async_periodic_update()
 
     async def handle_set_profile(call: ServiceCall) -> None:
         profile = call.data.get("profile", PROFILE_NORMAL)
+        entity_id = call.data.get("entity_id")
         if profile in PROFILES:
             for coord in hass.data[DOMAIN].values():
-                if isinstance(coord, AdaptiveCoordinator):
+                if not isinstance(coord, AdaptiveCoordinator):
+                    continue
+                if _matches_coord(coord, entity_id):
                     coord.profile_mgr.set_profile(profile)
                     await coord._async_periodic_update()
 
     async def handle_toggle_sleep(call: ServiceCall) -> None:
+        entity_id = call.data.get("entity_id")
         for coord in hass.data[DOMAIN].values():
-            if isinstance(coord, AdaptiveCoordinator):
+            if not isinstance(coord, AdaptiveCoordinator):
+                continue
+            if _matches_coord(coord, entity_id):
                 new_p = PROFILE_NORMAL if coord.profile_mgr.is_sleep() else PROFILE_SLEEP
                 coord.profile_mgr.set_profile(new_p)
                 await coord._async_periodic_update()
