@@ -1,0 +1,117 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Adaptives Zirkadianes Licht - Raumeinrichtung",
+        "description": "Richten Sie eine neue zirkadiane Beleuchtungszone ein.",
+        "data": {
+          "name": "Raum- / Zonenname",
+          "lights": "Lampen"
+        }
+      },
+      "modes": {
+        "title": "Berechnungs- und Farbmodus",
+        "description": "Wählen Sie, wie die Kurve berechnet und die Farbe an die Lampen übertragen wird.",
+        "data": {
+          "calc_mode": "Berechnungsmodus",
+          "color_mode": "Farbmodus"
+        }
+      },
+      "weather": {
+        "title": "Wetter- und Lux-Kompensation",
+        "description": "Kompensieren Sie bewölkte und regnerische Tage anhand von Wetterdaten oder einem physischen Lux-Sensor.",
+        "data": {
+          "weather_entity": "Wetter-Entität",
+          "lux_sensor": "Helligkeitssensor (Lux)",
+          "prioritize_lux": "Physischen Lux-Sensor gegenüber Wettervorhersage priorisieren",
+          "cloud_boost_pct": "Wolken-Helligkeitsverstärkung (+%)",
+          "cloud_boost_kelvin": "Wolken-Farbtemperaturverstärkung (+K)"
+        }
+      },
+      "presence": {
+        "title": "Präsenz- und Bewegungssteuerung",
+        "description": "Lampen automatisch dimmen und ausschalten, wenn der Raum leer ist, mit Speicher für manuelle Einstellungen.",
+        "data": {
+          "presence_enable": "Präsenzautomatisierung aktivieren",
+          "presence_sensors": "Bewegungs- / Präsenzsensoren",
+          "dim_timeout": "Dimm-Verzögerung (Sekunden ohne Bewegung vor dem Dimmen)",
+          "off_timeout": "Ausschalt-Verzögerung (Sekunden nach dem Dimmen)",
+          "grace_period": "Toleranzzeit (Sekunden für das Merken manueller Einstellungen beim Wiederbetreten)",
+          "dim_brightness": "Gedimmte Helligkeit (%)"
+        }
+      },
+      "limits": {
+        "title": "Grenzwerte und Schwellen",
+        "description": "Legen Sie Grenzen für Helligkeit und Farbtemperatur fest.",
+        "data": {
+          "min_brightness": "Minimale Helligkeit (%)",
+          "max_brightness": "Maximale Helligkeit (%)",
+          "min_color_temp": "Minimale Farbtemperatur (Warmes Kelvin)",
+          "max_color_temp": "Maximale Farbtemperatur (Kühles Kelvin)",
+          "transition": "Übergangszeit (Sekunden)",
+          "override_timeout": "Zeitlimit für manuelle Übersteuerung (Minuten)",
+          "anti_glare": "Blendschutz (verhindert grelles Aufblitzen nachts)"
+        }
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Einstellungen für adaptives zirkadianes Licht",
+        "description": "Passen Sie Lampen, Grenzwerte, Wetter und Modi an.",
+        "data": {
+          "lights": "Lampen",
+          "calc_mode": "Berechnungsmodus",
+          "color_mode": "Farbmodus",
+          "weather_entity": "Wetter-Entität",
+          "lux_sensor": "Helligkeitssensor (Lux)",
+          "min_brightness": "Minimale Helligkeit (%)",
+          "max_brightness": "Maximale Helligkeit (%)",
+          "min_color_temp": "Minimale Farbtemperatur (Kelvin)",
+          "max_color_temp": "Maximale Farbtemperatur (Kelvin)",
+          "override_timeout": "Zeitlimit für manuelle Übersteuerung (Minuten)",
+          "anti_glare": "Blendschutz"
+        }
+      }
+    }
+  },
+  "entity": {
+    "switch": {
+      "adaptation": { "name": "Anpassung" },
+      "adapt_brightness": { "name": "Helligkeit anpassen" },
+      "adapt_color": { "name": "Farbe anpassen" },
+      "sleep_mode": { "name": "Nachtmodus" }
+    },
+    "select": {
+      "profile": { "name": "Profil" },
+      "calc_mode": { "name": "Berechnungsmodus" },
+      "color_mode": { "name": "Farbmodus" }
+    },
+    "sensor": {
+      "target_brightness": { "name": "Ziel-Helligkeit" },
+      "target_color_temp": { "name": "Ziel-Farbtemperatur" },
+      "phase": { "name": "Zirkadiane Phase" },
+      "weather_boost": { "name": "Wetter-Kompensation" },
+      "manual_overrides": { "name": "Manuelle Übersteuerungen" },
+      "presence_state": { "name": "Präsenzstatus" }
+    }
+  },
+  "selector": {
+    "calc_modes": {
+      "options": {
+        "sun": "Reine Sonnenposition (Astral)",
+        "hybrid": "Hybrid (Sonne mit festen Zeitankern)",
+        "curve": "Benutzerdefinierte 24h-Kurve (Spline)",
+        "lux": "Wetter- und Lux-kompensiert"
+      }
+    },
+    "color_modes": {
+      "options": {
+        "kelvin": "Farbtemperatur (Kelvin)",
+        "rgb": "RGB-Farbe",
+        "auto": "Auto / Hybrid (Kelvin tagsüber, tiefes RGB nachts)"
+      }
+    }
+  }
+}

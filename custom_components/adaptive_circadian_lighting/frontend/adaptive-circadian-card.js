@@ -2,7 +2,95 @@
  * Adaptive Circadian Lighting - Lovelace Custom Card
  * Provides an interactive 24h circadian curve visualization, profile switcher,
  * weather boost monitor, and manual override manager.
+ * Supports English, Norwegian, Spanish, German, French, and Portuguese.
  */
+
+const I18N = {
+  en: {
+    brightness: "Brightness",
+    colorTemp: "Color Temp",
+    phase: "Phase",
+    now: "NOW",
+    automatic: "Automatic",
+    overridden: "overridden (Reset)",
+    resetAuto: "Restore adaptive control",
+    mode: "Mode",
+    color: "Color",
+    profiles: { normal: "Normal", sleep: "Sleep", morning: "Morning", evening: "Evening", focus: "Focus", relax: "Relax" }
+  },
+  nb: {
+    brightness: "Lysstyrke",
+    colorTemp: "Fargetemperatur",
+    phase: "Fase",
+    now: "NÅ",
+    automatic: "Automatisk",
+    overridden: "overstyrt (Nullstill)",
+    resetAuto: "Gjenopprett automatikk",
+    mode: "Modus",
+    color: "Farge",
+    profiles: { normal: "Normal", sleep: "Søvn", morning: "Morgen", evening: "Kveld", focus: "Fokus", relax: "Avslapping" }
+  },
+  no: {
+    brightness: "Lysstyrke",
+    colorTemp: "Fargetemperatur",
+    phase: "Fase",
+    now: "NÅ",
+    automatic: "Automatisk",
+    overridden: "overstyrt (Nullstill)",
+    resetAuto: "Gjenopprett automatikk",
+    mode: "Modus",
+    color: "Farge",
+    profiles: { normal: "Normal", sleep: "Søvn", morning: "Morgen", evening: "Kveld", focus: "Fokus", relax: "Avslapping" }
+  },
+  es: {
+    brightness: "Brillo",
+    colorTemp: "Temperatura color",
+    phase: "Fase",
+    now: "AHORA",
+    automatic: "Automático",
+    overridden: "anulado (Restablecer)",
+    resetAuto: "Restablecer control adaptativo",
+    mode: "Modo",
+    color: "Color",
+    profiles: { normal: "Normal", sleep: "Noche", morning: "Mañana", evening: "Tarde", focus: "Foco", relax: "Relajación" }
+  },
+  de: {
+    brightness: "Helligkeit",
+    colorTemp: "Farbtemperatur",
+    phase: "Phase",
+    now: "JETZT",
+    automatic: "Automatisch",
+    overridden: "übersteuert (Zurücksetzen)",
+    resetAuto: "Automatische Steuerung wiederherstellen",
+    mode: "Modus",
+    color: "Farbe",
+    profiles: { normal: "Normal", sleep: "Schlafen", morning: "Morgen", evening: "Abend", focus: "Fokus", relax: "Entspannen" }
+  },
+  fr: {
+    brightness: "Luminosité",
+    colorTemp: "Temp. de couleur",
+    phase: "Phase",
+    now: "MAINTENANT",
+    automatic: "Automatique",
+    overridden: "dérogé (Réinitialiser)",
+    resetAuto: "Restaurer le contrôle adaptatif",
+    mode: "Mode",
+    color: "Couleur",
+    profiles: { normal: "Normal", sleep: "Sommeil", morning: "Matin", evening: "Soir", focus: "Focus", relax: "Détente" }
+  },
+  pt: {
+    brightness: "Brilho",
+    colorTemp: "Temp. de cor",
+    phase: "Fase",
+    now: "AGORA",
+    automatic: "Automático",
+    overridden: "sobreposto (Repor)",
+    resetAuto: "Restaurar controlo adaptativo",
+    mode: "Modo",
+    color: "Cor",
+    profiles: { normal: "Normal", sleep: "Dormir", morning: "Manhã", evening: "Noite", focus: "Foco", relax: "Relaxar" }
+  }
+};
 
 class AdaptiveCircadianCard extends HTMLElement {
   constructor() {
@@ -11,9 +99,6 @@ class AdaptiveCircadianCard extends HTMLElement {
   }
 
   setConfig(config) {
-    if (!config.entity && !config.device_id && !config.name) {
-      // Default to finding first adaptive lighting switch if not specified
-    }
     this._config = config;
   }
 
@@ -22,11 +107,15 @@ class AdaptiveCircadianCard extends HTMLElement {
     this._render();
   }
 
+  _getLang() {
+    const lang = (this._hass?.locale?.language || this._hass?.language || "en").substring(0, 2).toLowerCase();
+    return I18N[lang] || I18N.en;
+  }
+
   _findRelatedEntities() {
     const states = this._hass?.states || {};
     const baseEntity = this._config?.entity || "";
 
-    // Extract prefix if e.g. switch.adaptive_living_room_adaptation or select.living_room_profile
     let prefix = "";
     if (baseEntity) {
       prefix = baseEntity
@@ -76,6 +165,7 @@ class AdaptiveCircadianCard extends HTMLElement {
   _render() {
     if (!this._hass) return;
 
+    const t = this._getLang();
     const entities = this._findRelatedEntities();
     const title = this._config?.title || entities.masterSwitch?.attributes?.friendly_name?.replace(" Adaptation", "") || "Adaptive Circadian Lighting";
 
@@ -88,16 +178,11 @@ class AdaptiveCircadianCard extends HTMLElement {
     const overrideCount = parseInt(entities.overridesSensor?.state || "0", 10);
     const presenceState = entities.presenceSensor?.state || "unknown";
 
-    // 24h Curve coordinates
+    // 24h Curve calculation
     const now = new Date();
     const currentHourFloat = now.getHours() + now.getMinutes() / 60.0;
     const currentX = (currentHourFloat / 24.0) * 360 + 20;
 
-    // Build SVG curve points for a standard day
-    const svgWidth = 400;
-    const svgHeight = 140;
-
-    // Approximate Kelvin and Brightness path points
     let points = [];
     for (let h = 0; h <= 24; h += 0.5) {
       let x = (h / 24.0) * 360 + 20;
@@ -280,14 +365,14 @@ class AdaptiveCircadianCard extends HTMLElement {
             ${presenceState}
           </span>
           ${overrideCount > 0 ? `
-            <span class="badge alert" id="btn-override-badge" title="Klikk for å nullstille">
+            <span class="badge alert" id="btn-override-badge">
               <ha-icon icon="mdi:hand-back-right-off" style="--mdc-icon-size: 14px;"></ha-icon>
-              ${overrideCount} overstyrt (Nullstill)
+              ${overrideCount} ${t.overridden}
             </span>
           ` : `
             <span class="badge">
               <ha-icon icon="mdi:check-circle-outline" style="--mdc-icon-size: 14px;"></ha-icon>
-              Automatisk
+              ${t.automatic}
             </span>
           `}
         </div>
@@ -304,17 +389,14 @@ class AdaptiveCircadianCard extends HTMLElement {
               </linearGradient>
             </defs>
 
-            <!-- Base horizontal guidelines -->
             <line x1="20" y1="120" x2="380" y2="120" stroke="rgba(255,255,255,0.1)" stroke-width="1" />
             <line x1="20" y1="35" x2="380" y2="35" stroke="rgba(255,255,255,0.06)" stroke-dasharray="4,4" />
 
-            <!-- Circadian Curve -->
             <path d="${curvePath}" fill="none" stroke="url(#curveGradient)" stroke-width="4" stroke-linecap="round" />
 
-            <!-- NOW vertical marker -->
             <line x1="${currentX}" y1="15" x2="${currentX}" y2="125" class="now-indicator" />
             <circle cx="${currentX}" cy="30" r="4" fill="#ff9800" />
-            <text x="${currentX}" y="12" fill="#ff9800" font-size="9" font-weight="bold" text-anchor="middle">NÅ</text>
+            <text x="${currentX}" y="12" fill="#ff9800" font-size="9" font-weight="bold" text-anchor="middle">${t.now}</text>
           </svg>
           <div class="timeline-label">
             <span>00:00</span>
@@ -327,15 +409,15 @@ class AdaptiveCircadianCard extends HTMLElement {
 
         <div class="stats-grid">
           <div class="stat-box">
-            <div class="stat-label">Lysstyrke</div>
+            <div class="stat-label">${t.brightness}</div>
             <div class="stat-value">${currentBrightness}%</div>
           </div>
           <div class="stat-box">
-            <div class="stat-label">Fargetemperatur</div>
+            <div class="stat-label">${t.colorTemp}</div>
             <div class="stat-value">${currentKelvin}K</div>
           </div>
           <div class="stat-box">
-            <div class="stat-label">Fase</div>
+            <div class="stat-label">${t.phase}</div>
             <div class="stat-value" style="font-size:0.95rem; text-transform:capitalize;">${currentPhase}</div>
           </div>
         </div>
@@ -343,19 +425,19 @@ class AdaptiveCircadianCard extends HTMLElement {
         <div class="profiles">
           ${["normal", "sleep", "morning", "evening", "focus", "relax"].map(p => `
             <button class="profile-btn ${currentProfile === p ? 'active' : ''}" data-profile="${p}">
-              ${p.charAt(0).toUpperCase() + p.slice(1)}
+              ${t.profiles[p] || (p.charAt(0).toUpperCase() + p.slice(1))}
             </button>
           `).join("")}
         </div>
 
         <div class="actions-row">
           <div style="font-size: 0.75rem; opacity: 0.7;">
-            Modus: <b>${entities.calcModeSelect?.state || 'Hybrid'}</b> | Farge: <b>${entities.colorModeSelect?.state || 'Auto'}</b>
+            ${t.mode}: <b>${entities.calcModeSelect?.state || 'Hybrid'}</b> | ${t.color}: <b>${entities.colorModeSelect?.state || 'Auto'}</b>
           </div>
           ${overrideCount > 0 ? `
             <button class="btn-reset" id="btn-reset-overrides">
               <ha-icon icon="mdi:refresh" style="--mdc-icon-size: 14px;"></ha-icon>
-              Gjenopprett automatikk
+              ${t.resetAuto}
             </button>
           ` : ''}
         </div>
@@ -368,7 +450,6 @@ class AdaptiveCircadianCard extends HTMLElement {
   _bindEvents(entities) {
     const root = this.shadowRoot;
 
-    // Master toggle
     const toggle = root.getElementById("master-toggle");
     if (toggle && entities.masterSwitch) {
       toggle.addEventListener("change", () => {
@@ -376,7 +457,6 @@ class AdaptiveCircadianCard extends HTMLElement {
       });
     }
 
-    // Profile buttons
     const buttons = root.querySelectorAll(".profile-btn");
     buttons.forEach(btn => {
       btn.addEventListener("click", () => {
@@ -392,7 +472,6 @@ class AdaptiveCircadianCard extends HTMLElement {
       });
     });
 
-    // Reset override buttons
     const resetBtn = root.getElementById("btn-reset-overrides");
     const badgeReset = root.getElementById("btn-override-badge");
     const doReset = () => {
@@ -409,11 +488,10 @@ class AdaptiveCircadianCard extends HTMLElement {
 
 customElements.define("adaptive-circadian-card", AdaptiveCircadianCard);
 
-// Register with Home Assistant Card Picker
 window.customCards = window.customCards || [];
 window.customCards.push({
   type: "adaptive-circadian-card",
   name: "Adaptive Circadian Card",
-  description: "Interaktiv 24t døgnrytmekurve, profilvelger og overstyringskontroll for Adaptive Circadian Lighting.",
+  description: "Interaktiv 24t døgnrytmekurve / Interactive 24h circadian curve for Adaptive Circadian Lighting.",
   preview: true,
 });

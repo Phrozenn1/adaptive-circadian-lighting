@@ -1,0 +1,117 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Iluminação Circadiana Adaptativa - Configuração de Divisão",
+        "description": "Configure uma nova zona de iluminação circadiana.",
+        "data": {
+          "name": "Nome da Divisão / Zona",
+          "lights": "Luzes"
+        }
+      },
+      "modes": {
+        "title": "Modo de Cálculo e Modo de Cor",
+        "description": "Selecione como a curva é calculada e como a cor é enviada para as luzes.",
+        "data": {
+          "calc_mode": "Modo de Cálculo",
+          "color_mode": "Modo de Cor"
+        }
+      },
+      "weather": {
+        "title": "Compensação de Clima e Lux",
+        "description": "Compense dias nublados e chuvosos através da previsão meteorológica ou de um sensor físico de lux.",
+        "data": {
+          "weather_entity": "Entidade Meteorológica",
+          "lux_sensor": "Sensor de Iluminância (Lux)",
+          "prioritize_lux": "Priorizar sensor de lux físico sobre a previsão",
+          "cloud_boost_pct": "Aumento de brilho por nuvens (+%)",
+          "cloud_boost_kelvin": "Aumento de temperatura por nuvens (+K)"
+        }
+      },
+      "presence": {
+        "title": "Presença e Automação de Movimento",
+        "description": "Dimeriza e desliga automaticamente as luzes quando o espaço está vazio, com memória para ajustes manuais.",
+        "data": {
+          "presence_enable": "Ativar automação de presença",
+          "presence_sensors": "Sensores de Movimento / Presença",
+          "dim_timeout": "Tempo antes de dimerizar (segundos sem movimento)",
+          "off_timeout": "Tempo antes de desligar (segundos após dimerizar)",
+          "grace_period": "Período de tolerância (segundos para restaurar ajustes manuais ao regressar)",
+          "dim_brightness": "Nível de brilho dimerizado (%)"
+        }
+      },
+      "limits": {
+        "title": "Limites e Limiares",
+        "description": "Defina os limites de brilho e temperatura de cor.",
+        "data": {
+          "min_brightness": "Brilho Mínimo (%)",
+          "max_brightness": "Brilho Máximo (%)",
+          "min_color_temp": "Temperatura Mínima (Kelvin Quente)",
+          "max_color_temp": "Temperatura Máxima (Kelvin Frio)",
+          "transition": "Tempo de Transição (segundos)",
+          "override_timeout": "Tempo limite de sobreposição manual (minutos)",
+          "anti_glare": "Anti-ofuscamento (evita encadeamento ao ligar à noite)"
+        }
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Definições de Iluminação Circadiana Adaptativa",
+        "description": "Ajuste luzes, limites, clima e modos.",
+        "data": {
+          "lights": "Luzes",
+          "calc_mode": "Modo de Cálculo",
+          "color_mode": "Modo de Cor",
+          "weather_entity": "Entidade Meteorológica",
+          "lux_sensor": "Sensor de Iluminância (Lux)",
+          "min_brightness": "Brilho Mínimo (%)",
+          "max_brightness": "Brilho Máximo (%)",
+          "min_color_temp": "Temperatura Mínima (Kelvin)",
+          "max_color_temp": "Temperatura Máxima (Kelvin)",
+          "override_timeout": "Tempo limite de sobreposição manual (minutos)",
+          "anti_glare": "Anti-ofuscamento"
+        }
+      }
+    }
+  },
+  "entity": {
+    "switch": {
+      "adaptation": { "name": "Adaptação" },
+      "adapt_brightness": { "name": "Adaptar brilho" },
+      "adapt_color": { "name": "Adaptar cor" },
+      "sleep_mode": { "name": "Modo noite" }
+    },
+    "select": {
+      "profile": { "name": "Perfil" },
+      "calc_mode": { "name": "Modo de cálculo" },
+      "color_mode": { "name": "Modo de cor" }
+    },
+    "sensor": {
+      "target_brightness": { "name": "Brilho alvo" },
+      "target_color_temp": { "name": "Temperatura de cor alvo" },
+      "phase": { "name": "Fase circadiana" },
+      "weather_boost": { "name": "Compensação climática" },
+      "manual_overrides": { "name": "Sobreposições manuais" },
+      "presence_state": { "name": "Estado de presença" }
+    }
+  },
+  "selector": {
+    "calc_modes": {
+      "options": {
+        "sun": "Posição Solar Pura (Astral)",
+        "hybrid": "Híbrido (Sol com Horários Fixos)",
+        "curve": "Curva 24h Personalizada (Spline)",
+        "lux": "Compensado por Clima / Lux"
+      }
+    },
+    "color_modes": {
+      "options": {
+        "kelvin": "Temperatura de Cor (Kelvin)",
+        "rgb": "Cor RGB",
+        "auto": "Auto / Híbrido (Kelvin de dia, RGB profundo de noite)"
+      }
+    }
+  }
+}

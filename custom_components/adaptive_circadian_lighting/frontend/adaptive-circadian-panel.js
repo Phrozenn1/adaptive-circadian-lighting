@@ -1,7 +1,109 @@
 /**
  * Adaptive Circadian Lighting - Custom Sidebar Panel
  * Displays an overview of all circadian zones, weather boosts, and room statuses in Home Assistant.
+ * Supports English, Norwegian, Spanish, German, French, and Portuguese.
  */
+
+const PANEL_I18N = {
+  en: {
+    subtitle: "Overview of circadian curves, weather boost, and room presence across your home.",
+    allSleep: "Sleep mode for all",
+    resetAll: "Reset all overrides",
+    noZones: "No zones configured yet",
+    noZonesDesc: "Go to Settings -> Devices & services -> Add integration to configure your first room.",
+    targetBright: "Target Brightness",
+    targetColor: "Color Temp",
+    profile: "Profile",
+    phase: "Phase",
+    weather: "Weather",
+    presence: "Presence",
+    overriddenCount: "light overridden"
+  },
+  nb: {
+    subtitle: "Oversikt over døgnrytme, værkompensering og tilstedeværelse for alle rom.",
+    allSleep: "Nattmodus for alle",
+    resetAll: "Nullstill alle overstyringer",
+    noZones: "Ingen soner konfigurert ennå",
+    noZonesDesc: "Gå til Innstillinger -> Enheter og tjenester -> Legg til integrasjon for å opprette ditt første rom.",
+    targetBright: "Mål-lysstyrke",
+    targetColor: "Fargetemperatur",
+    profile: "Profil",
+    phase: "Fase",
+    weather: "Vær",
+    presence: "Tilstedeværelse",
+    overriddenCount: "lampe overstyrt"
+  },
+  no: {
+    subtitle: "Oversikt over døgnrytme, værkompensering og tilstedeværelse for alle rom.",
+    allSleep: "Nattmodus for alle",
+    resetAll: "Nullstill alle overstyringer",
+    noZones: "Ingen soner konfigurert ennå",
+    noZonesDesc: "Gå til Innstillinger -> Enheter og tjenester -> Legg til integrasjon for å opprette ditt første rom.",
+    targetBright: "Mål-lysstyrke",
+    targetColor: "Fargetemperatur",
+    profile: "Profil",
+    phase: "Fase",
+    weather: "Vær",
+    presence: "Tilstedeværelse",
+    overriddenCount: "lampe overstyrt"
+  },
+  es: {
+    subtitle: "Resumen de curvas circadianas, compensación climática y presencia en todas las habitaciones.",
+    allSleep: "Modo noche para todos",
+    resetAll: "Restablecer todas las anulaciones",
+    noZones: "Aún no hay zonas configuradas",
+    noZonesDesc: "Vaya a Configuración -> Dispositivos y servicios para añadir su primera habitación.",
+    targetBright: "Brillo objetivo",
+    targetColor: "Temp. de color",
+    profile: "Perfil",
+    phase: "Fase",
+    weather: "Clima",
+    presence: "Presencia",
+    overriddenCount: "luz anulada"
+  },
+  de: {
+    subtitle: "Übersicht über zirkadiane Kurven, Wetter-Boost und Präsenz für alle Räume.",
+    allSleep: "Nachtmodus für alle",
+    resetAll: "Alle Übersteuerungen zurücksetzen",
+    noZones: "Noch keine Zonen eingerichtet",
+    noZonesDesc: "Gehen Sie zu Einstellungen -> Geräte & Dienste, um Ihren ersten Raum einzurichten.",
+    targetBright: "Ziel-Helligkeit",
+    targetColor: "Farbtemperatur",
+    profile: "Profil",
+    phase: "Phase",
+    weather: "Wetter",
+    presence: "Präsenz",
+    overriddenCount: "Lampe übersteuert"
+  },
+  fr: {
+    subtitle: "Aperçu des courbes circadiennes, compensation météo et présence dans toutes les pièces.",
+    allSleep: "Mode nuit pour tous",
+    resetAll: "Réinitialiser toutes les dérogations",
+    noZones: "Aucune zone configurée",
+    noZonesDesc: "Allez dans Paramètres -> Appareils et services pour configurer votre première pièce.",
+    targetBright: "Luminosité cible",
+    targetColor: "Temp. de couleur",
+    profile: "Profil",
+    phase: "Phase",
+    weather: "Météo",
+    presence: "Présence",
+    overriddenCount: "lumière dérogée"
+  },
+  pt: {
+    subtitle: "Visão geral das curvas circadianas, compensação de clima e presença em todas as divisões.",
+    allSleep: "Modo noturno para todos",
+    resetAll: "Repor todas as sobreposições",
+    noZones: "Nenhuma zona configurada ainda",
+    noZonesDesc: "Vá a Definições -> Dispositivos e serviços para configurar a sua primeira divisão.",
+    targetBright: "Brilho alvo",
+    targetColor: "Temp. de cor",
+    profile: "Perfil",
+    phase: "Fase",
+    weather: "Clima",
+    presence: "Presença",
+    overriddenCount: "luz sobreposta"
+  }
+};
 
 class AdaptiveCircadianPanel extends HTMLElement {
   constructor() {
@@ -14,11 +116,16 @@ class AdaptiveCircadianPanel extends HTMLElement {
     this._render();
   }
 
+  _getLang() {
+    const lang = (this._hass?.locale?.language || this._hass?.language || "en").substring(0, 2).toLowerCase();
+    return PANEL_I18N[lang] || PANEL_I18N.en;
+  }
+
   _render() {
     if (!this._hass) return;
 
+    const t = this._getLang();
     const states = this._hass.states || {};
-    // Find all master switches for our domain
     const instances = [];
 
     for (const [entityId, stateObj] of Object.entries(states)) {
@@ -168,24 +275,24 @@ class AdaptiveCircadianPanel extends HTMLElement {
               <ha-icon icon="mdi:sun-clock"></ha-icon>
               Adaptive Circadian Lighting
             </h1>
-            <p>Oversikt over døgnrytme, værkompensering og tilstedeværelse for alle rom.</p>
+            <p>${t.subtitle}</p>
           </div>
           <div class="global-actions">
             <button class="btn-global" id="btn-all-sleep">
               <ha-icon icon="mdi:bed"></ha-icon>
-              Nattmodus for alle
+              ${t.allSleep}
             </button>
             <button class="btn-global" id="btn-all-reset">
               <ha-icon icon="mdi:refresh"></ha-icon>
-              Nullstill alle overstyringer
+              ${t.resetAll}
             </button>
           </div>
         </div>
 
         ${instances.length === 0 ? `
           <div class="empty-state">
-            <h2>Ingen soner konfigurert ennå</h2>
-            <p>Gå til Innstillinger -> Enheter og tjenester -> Legg til integrasjon for å opprette ditt første rom.</p>
+            <h2>${t.noZones}</h2>
+            <p>${t.noZonesDesc}</p>
           </div>
         ` : `
           <div class="grid">
@@ -197,21 +304,21 @@ class AdaptiveCircadianPanel extends HTMLElement {
                 </div>
                 <div class="zone-stats">
                   <div class="stat-item">
-                    <div class="label">Mål-lysstyrke</div>
+                    <div class="label">${t.targetBright}</div>
                     <div class="value">${inst.targetBrightness}%</div>
                   </div>
                   <div class="stat-item">
-                    <div class="label">Fargetemperatur</div>
+                    <div class="label">${t.targetColor}</div>
                     <div class="value">${inst.targetKelvin}K</div>
                   </div>
                 </div>
                 <div class="zone-badges">
-                  <span class="z-badge">Profil: <b>${inst.profile}</b></span>
-                  <span class="z-badge">Fase: <b>${inst.phase}</b></span>
-                  <span class="z-badge boost">Vær: <b>${inst.weatherBoost.replace('_', ' ')}</b></span>
-                  <span class="z-badge">Tilstedeværelse: <b>${inst.presence}</b></span>
+                  <span class="z-badge">${t.profile}: <b>${inst.profile}</b></span>
+                  <span class="z-badge">${t.phase}: <b>${inst.phase}</b></span>
+                  <span class="z-badge boost">${t.weather}: <b>${inst.weatherBoost.replace('_', ' ')}</b></span>
+                  <span class="z-badge">${t.presence}: <b>${inst.presence}</b></span>
                   ${inst.overrides > 0 ? `
-                    <span class="z-badge overridden">${inst.overrides} pære overstyrt</span>
+                    <span class="z-badge overridden">${inst.overrides} ${t.overriddenCount}</span>
                   ` : ''}
                 </div>
               </div>
@@ -227,7 +334,6 @@ class AdaptiveCircadianPanel extends HTMLElement {
   _bindEvents() {
     const root = this.shadowRoot;
 
-    // Global buttons
     const btnSleep = root.getElementById("btn-all-sleep");
     if (btnSleep) {
       btnSleep.addEventListener("click", () => {
@@ -242,7 +348,6 @@ class AdaptiveCircadianPanel extends HTMLElement {
       });
     }
 
-    // Individual switches
     const switches = root.querySelectorAll(".zone-switch");
     switches.forEach(sw => {
       sw.addEventListener("change", () => {

@@ -55,6 +55,48 @@
       }
     }
   },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Adaptive Circadian Lighting Settings",
+        "description": "Adjust settings, lights, thresholds, and modes.",
+        "data": {
+          "lights": "Lights",
+          "calc_mode": "Calculation Mode",
+          "color_mode": "Color Mode",
+          "weather_entity": "Weather Entity",
+          "lux_sensor": "Illuminance (Lux) Sensor",
+          "min_brightness": "Minimum Brightness (%)",
+          "max_brightness": "Maximum Brightness (%)",
+          "min_color_temp": "Minimum Color Temperature (Kelvin)",
+          "max_color_temp": "Maximum Color Temperature (Kelvin)",
+          "override_timeout": "Manual Override Timeout (minutes)",
+          "anti_glare": "Anti-Glare (Prevent blinding light turn-on)"
+        }
+      }
+    }
+  },
+  "entity": {
+    "switch": {
+      "adaptation": { "name": "Adaptation" },
+      "adapt_brightness": { "name": "Adapt Brightness" },
+      "adapt_color": { "name": "Adapt Color" },
+      "sleep_mode": { "name": "Sleep Mode" }
+    },
+    "select": {
+      "profile": { "name": "Profile" },
+      "calc_mode": { "name": "Calculation Mode" },
+      "color_mode": { "name": "Color Mode" }
+    },
+    "sensor": {
+      "target_brightness": { "name": "Target Brightness" },
+      "target_color_temp": { "name": "Target Color Temperature" },
+      "phase": { "name": "Circadian Phase" },
+      "weather_boost": { "name": "Weather Boost" },
+      "manual_overrides": { "name": "Manual Overrides" },
+      "presence_state": { "name": "Presence State" }
+    }
+  },
   "selector": {
     "calc_modes": {
       "options": {

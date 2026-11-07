@@ -55,6 +55,48 @@
       }
     }
   },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Innstillinger for Adaptiv Døgnrytmelys",
+        "description": "Juster lamper, grenseverdier, vær og moduser.",
+        "data": {
+          "lights": "Lamper",
+          "calc_mode": "Beregningsmodell",
+          "color_mode": "Fargemodus",
+          "weather_entity": "Værentitet",
+          "lux_sensor": "Lysmåler (Lux-sensor)",
+          "min_brightness": "Minimum lysstyrke (%)",
+          "max_brightness": "Maksimum lysstyrke (%)",
+          "min_color_temp": "Varmeste fargetemperatur (Kelvin)",
+          "max_color_temp": "Kaldeste fargetemperatur (Kelvin)",
+          "override_timeout": "Tidsavbrudd for manuell overstyring (minutter)",
+          "anti_glare": "Anti-blending (hindrer sjokkblits ved natt-innkobling)"
+        }
+      }
+    }
+  },
+  "entity": {
+    "switch": {
+      "adaptation": { "name": "Tilpasning" },
+      "adapt_brightness": { "name": "Tilpass lysstyrke" },
+      "adapt_color": { "name": "Tilpass farge" },
+      "sleep_mode": { "name": "Nattmodus" }
+    },
+    "select": {
+      "profile": { "name": "Profil" },
+      "calc_mode": { "name": "Beregningsmodell" },
+      "color_mode": { "name": "Fargemodus" }
+    },
+    "sensor": {
+      "target_brightness": { "name": "Mål-lysstyrke" },
+      "target_color_temp": { "name": "Mål-fargetemperatur" },
+      "phase": { "name": "Døgnfase" },
+      "weather_boost": { "name": "Vær-boost" },
+      "manual_overrides": { "name": "Manuelle overstyringer" },
+      "presence_state": { "name": "Tilstedeværelsestilstand" }
+    }
+  },
   "selector": {
     "calc_modes": {
       "options": {

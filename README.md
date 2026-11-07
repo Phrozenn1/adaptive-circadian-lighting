@@ -1,11 +1,128 @@
 # Adaptive Circadian Lighting for Home Assistant
 
-En avansert døgnrytmebelysnings-integrasjon for Home Assistant som automatisk tilpasser lysstyrke, fargetemperatur (Kelvin) og RGB-farger gjennom døgnet.
+[![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/hacs/default)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Basert på og inspirert av `basnijholt/adaptive-lighting`, men utvidet med:
-- **4 Døgnrytmemodeller:** Ren solposisjon, Hybrid (sol + faste tidsankere), Egendefinert 24t kurve, og Vær-/Lux-kompensert.
-- **Valgbar Fargetilpasning:** Kelvin, ren RGB, eller Auto-hybrid (Kelvin om dagen, dyp oransje/rød RGB om natten).
-- **Vær- og Skydekke-prioritering:** Kobling mot `weather.*` og/eller fysisk lux-sensor, med prioritert "Cloud Boost" for mørke dager.
-- **Tilstedeværelsesstyring med Minne:** Automatisk 2-trinns dimming og avskruing ved tomt rom, og intelligent minne som gjenoppretter manuelle innstillinger ved kort fravær (f.eks. hente en kaffe).
+An advanced circadian rhythm lighting integration for Home Assistant that dynamically synchronizes brightness, color temperature (Kelvin), and RGB colors across your home.
+
+Inspired by and building upon `basnijholt/adaptive-lighting`, this component redesigns the architecture to feature an interactive GUI, weather and cloud compensation, first-class RGB and Kelvin modes, and presence automation with state memory for manual adjustments.
+
+---
+
+## 🌍 Supported Languages / Støttede Språk
+
+The integration, options flow, entities, and UI cards automatically adapt to your Home Assistant language setting:
+- 🇬🇧 **English** (`en`)
+- 🇳🇴 **Norsk (Bokmål)** (`nb`, `no`)
+- 🇪🇸 **Español** (`es`)
+- 🇩🇪 **Deutsch** (`de`)
+- 🇫🇷 **Français** (`fr`)
+- 🇵🇹 🇧🇷 **Português (Portugal & Brasil)** (`pt`, `pt-BR`)
+
+---
+
+## ✨ Key Features
+
+### 1. Four Calculation Engines
+- **Hybrid (Recommended):** Blends solar elevation with user-defined time anchors (e.g. wakeup never earlier than 06:30, evening wind-down guaranteed by 21:30 even during high-latitude midnight sun).
+- **Pure Sun Position (Astral):** Classic astronomical calculation following sunrise, solar noon, sunset, and twilight.
+- **Custom 24h Curve (Spline):** 24-hour piecewise cubic/cosine spline curve using custom control points `[(hour, brightness_pct, kelvin), ...]`.
+- **Weather / Lux Compensated:** Real-time sensor-driven modulation.
+
+### 2. Flexible Color Modes (Kelvin, RGB & Auto-Hybrid)
+- **Color Temperature (Kelvin):** Native white-spectrum LED control (Tuneable White / CCT).
+- **RGB Mode:** Direct RGB color control for LED strips and colored bulbs.
+- **Auto / Hybrid (Recommended):** Employs native Kelvin white diodes during normal daylight hours (e.g. 2200K–6500K), and automatically shifts to deep amber/red RGB (1200K–1800K) at night to bypass hardware white diode limits and preserve melatonin production.
+
+### 3. Weather & Cloud Boost (Sensor Fusion)
+- Directly reads Home Assistant's built-in `weather.*` entity (cloud coverage and conditions like `cloudy`, `rainy`, `fog`).
+- **Priority Hierarchy:**
+  1. **Physical Lux Sensor (Highest Priority):** Measured outdoor or indoor lux.
+  2. **Weather Entity:** Automatically applies a configurable "Cloud Boost" (e.g. +25% brightness and crisper Kelvin) on dark, overcast days.
+  3. **Circadian Curve:** Base circadian schedule.
+
+### 4. Presence Automation & State Memory
+- Connects to room motion/presence sensors (`binary_sensor.*`).
+- **Active Occupancy:** Keeps any manual bulb adjustment locked in without disruption while the room is in use (e.g. cooking in the kitchen or working at an office desk).
+- **Staged 2-Step Vacancy:**
+  - *Dimming Phase:* Dims lights down to minimum (e.g. 10%) after a configurable timeout (e.g. 3 minutes).
+  - *Turn-Off Phase:* Completely powers off lights after an additional timeout (e.g. 2 minutes).
+- **Grace Period (Short Departures):** If someone leaves temporarily (e.g. to fetch a coffee) and returns within the grace window (e.g. 15 minutes), **their manual lighting setting is immediately restored**! Beyond the grace period, lights cleanly turn back on with adaptive circadian lighting.
+
+### 5. Interactive GUI & Lovelace Card
+- **Lovelace Custom Card (`adaptive-circadian-card`):**
+  - Interactive SVG 24h curve with day/night zones and live "NOW" indicator.
+  - One-click profile chips: `Normal`, `Sleep`, `Morning`, `Evening`, `Focus`, `Relax`.
+  - Live status badges for weather boost, presence, and manual overrides.
+  - 1-click button to reset manual overrides and restore automatic control.
+- **Custom Sidebar Panel (`/adaptive-circadian`):**
+  - Dedicated full-screen dashboard in Home Assistant's sidebar displaying all house zones side-by-side with global toggles.
+
+### 6. Anti-Glare (Nighttime Turn-On Protection)
+- Intercepts `light.turn_on` calls so when a light is switched on at night (via motion sensor or wall switch), it turns on directly to the calculated dim warm night level without any bright flash.
+
+---
+
+## 📦 Installation
+
+### Option 1: Manual Installation
+1. Copy the `custom_components/adaptive_circadian_lighting` directory into your Home Assistant `<config_dir>/custom_components/` folder:
+   ```bash
+   cp -r custom_components/adaptive_circadian_lighting /path/to/homeassistant/config/custom_components/
+   ```
+2. Restart Home Assistant.
+3. In Home Assistant, go to **Settings -> Devices & Services -> Add Integration**.
+4. Search for **Adaptive Circadian Lighting** and follow the multi-step setup wizard.
+
+### Option 2: HACS (Custom Repository)
+1. In Home Assistant, open **HACS -> Integrations**.
+2. Click the three dots in the top right corner and choose **Custom repositories**.
+3. Add this repository URL, category: **Integration**.
+4. Click **Download**, then restart Home Assistant.
+
+---
+
+## 🎨 Lovelace Card Setup
+
+The custom Lovelace card is automatically registered when the integration is installed! Simply edit your dashboard and add:
+
+```yaml
+type: custom:adaptive-circadian-card
+entity: switch.living_room_adaptation
+title: Living Room
+```
+
+---
+
+## 🛠️ Services
+
+The integration exposes the following services under domain `adaptive_circadian_lighting`:
+- `adaptive_circadian_lighting.apply_now`: Immediately calculates and pushes target values to lights.
+- `adaptive_circadian_lighting.reset_manual_override`: Clears manual overrides and resumes automated adaptation.
+- `adaptive_circadian_lighting.set_profile`: Activates a lighting profile (`normal`, `sleep`, `morning`, `evening`, `focus`, `relax`).
+- `adaptive_circadian_lighting.toggle_sleep_mode`: Toggles sleep mode on/off.
+
+---
+
+## 🧪 Testing & Verification
+
+Run the automated test suite locally:
+```bash
+python3 -m unittest discover tests
+```
+
+---
+
+<details>
+<summary><b>🇳🇴 Norsk Dokumentasjon (Klikk for å utvide)</b></summary>
+
+### Norsk sammendrag
+**Adaptive Circadian Lighting** tilpasser automatisk lysstyrke og fargetemperatur (Kelvin og RGB) i hjemmet basert på døgnrytme, solposisjon og værforhold.
+
+**Hovedfordeler:**
+- **Hybrid solmodell:** Aldri fullt dagslys før kl. 06:30, og garantert kveldslys senest 21:30 selv om sommeren.
+- **Værkompensering (Cloud Boost):** Henter værdata fra `weather.*` og øker automatisk lysstyrken (+25 %) på mørke og overskyede dager.
+- **Bevegelsessensor med minne:** Lyset dimmes i 2 trinn når rommet er tomt, og husker manuelle innstillinger dersom du forlater rommet en kort stund (f.eks. henter en kaffe).
+- **Anti-blending:** Pærer tennes direkte i dempet nattlys uten sjokkblits.
 - **Innebygd GUI:** Interaktivt Lovelace Dashboard-kort og dedikert sidepanel i Home Assistant.
-- **Anti-blending (Night turn-on):** Avskjærer `light.turn_on` slik at nattlamper tennes direkte på dempet nivå uten blitsing.
+</details>

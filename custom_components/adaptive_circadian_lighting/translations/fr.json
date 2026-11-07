@@ -1,0 +1,117 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Éclairage Circadien Adaptatif - Configuration de la Pièce",
+        "description": "Configurez une nouvelle zone d'éclairage circadien.",
+        "data": {
+          "name": "Nom de la Pièce / Zone",
+          "lights": "Lumières"
+        }
+      },
+      "modes": {
+        "title": "Mode de Calcul et Mode de Couleur",
+        "description": "Sélectionnez comment la courbe est calculée et comment la couleur est transmise aux lumières.",
+        "data": {
+          "calc_mode": "Mode de Calcul",
+          "color_mode": "Mode de Couleur"
+        }
+      },
+      "weather": {
+        "title": "Compensation Météo et Lux",
+        "description": "Compensez les journées nuageuses et pluvieuses grâce aux prévisions météo ou à un capteur physique de lux.",
+        "data": {
+          "weather_entity": "Entité Météo",
+          "lux_sensor": "Capteur de Luminosité (Lux)",
+          "prioritize_lux": "Prioriser le capteur lux physique sur les prévisions",
+          "cloud_boost_pct": "Augmentation de luminosité pour nuages (+%)",
+          "cloud_boost_kelvin": "Augmentation de température pour nuages (+K)"
+        }
+      },
+      "presence": {
+        "title": "Automatisation de Présence et Mouvement",
+        "description": "Varie et éteint automatiquement les lumières lorsque la pièce est vide, avec mémoire des réglages manuels.",
+        "data": {
+          "presence_enable": "Activer l'automatisation de présence",
+          "presence_sensors": "Capteurs de Mouvement / Présence",
+          "dim_timeout": "Délai avant variation (secondes sans mouvement)",
+          "off_timeout": "Délai avant extinction (secondes après variation)",
+          "grace_period": "Période de grâce (secondes pour mémoriser les réglages manuels au retour)",
+          "dim_brightness": "Niveau de luminosité atténuée (%)"
+        }
+      },
+      "limits": {
+        "title": "Limites et Seuils",
+        "description": "Définissez les limites de luminosité et de température de couleur.",
+        "data": {
+          "min_brightness": "Luminosité Minimale (%)",
+          "max_brightness": "Luminosité Maximale (%)",
+          "min_color_temp": "Température Minimale (Kelvin Chaud)",
+          "max_color_temp": "Température Maximale (Kelvin Froid)",
+          "transition": "Temps de Transition (secondes)",
+          "override_timeout": "Délai de dérogation manuelle (minutes)",
+          "anti_glare": "Anti-éblouissement (empêche les éclats aveuglants la nuit)"
+        }
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Paramètres d'Éclairage Circadien Adaptatif",
+        "description": "Ajustez les lumières, limites, météo et modes.",
+        "data": {
+          "lights": "Lumières",
+          "calc_mode": "Mode de Calcul",
+          "color_mode": "Mode de Couleur",
+          "weather_entity": "Entité Météo",
+          "lux_sensor": "Capteur de Luminosité (Lux)",
+          "min_brightness": "Luminosité Minimale (%)",
+          "max_brightness": "Luminosité Maximale (%)",
+          "min_color_temp": "Température Minimale (Kelvin)",
+          "max_color_temp": "Température Maximale (Kelvin)",
+          "override_timeout": "Délai de dérogation manuelle (minutes)",
+          "anti_glare": "Anti-éblouissement"
+        }
+      }
+    }
+  },
+  "entity": {
+    "switch": {
+      "adaptation": { "name": "Adaptation" },
+      "adapt_brightness": { "name": "Adapter la luminosité" },
+      "adapt_color": { "name": "Adapter la couleur" },
+      "sleep_mode": { "name": "Mode nuit" }
+    },
+    "select": {
+      "profile": { "name": "Profil" },
+      "calc_mode": { "name": "Mode de calcul" },
+      "color_mode": { "name": "Mode de couleur" }
+    },
+    "sensor": {
+      "target_brightness": { "name": "Luminosité cible" },
+      "target_color_temp": { "name": "Température de couleur cible" },
+      "phase": { "name": "Phase circadienne" },
+      "weather_boost": { "name": "Compensation météo" },
+      "manual_overrides": { "name": "Dérogations manuelles" },
+      "presence_state": { "name": "État de présence" }
+    }
+  },
+  "selector": {
+    "calc_modes": {
+      "options": {
+        "sun": "Position Solaire Pure (Astral)",
+        "hybrid": "Hybride (Soleil avec Repères Fixes)",
+        "curve": "Courbe 24h Personnalisée (Spline)",
+        "lux": "Compensé par Météo / Lux"
+      }
+    },
+    "color_modes": {
+      "options": {
+        "kelvin": "Température de Couleur (Kelvin)",
+        "rgb": "Couleur RGB",
+        "auto": "Auto / Hybride (Kelvin le jour, RGB profond la nuit)"
+      }
+    }
+  }
+}
