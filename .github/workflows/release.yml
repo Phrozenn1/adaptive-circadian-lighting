@@ -1,0 +1,26 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  release:
+    name: Package HACS Release Asset
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Create zip archive
+        run: |
+          cd custom_components/adaptive_circadian_lighting
+          zip -r ../../adaptive_circadian_lighting.zip .
+          cd ../..
+
+      - name: Upload zip to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: adaptive_circadian_lighting.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,168 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Adaptive Circadian Lighting - Room Setup",
+        "description": "Configure a new circadian lighting zone.",
+        "data": {
+          "name": "Room / Zone Name",
+          "lights": "Lights"
+        }
+      },
+      "modes": {
+        "title": "Calculation and Color Mode",
+        "description": "Select how the curve is calculated and how color is transmitted to the lights.",
+        "data": {
+          "calc_mode": "Calculation Mode",
+          "color_mode": "Color Mode",
+          "adapt_only_on_bare_turn_on": "Adapt only on turn-on (static while on)",
+          "sunrise_offset": "Sunrise Offset (minutes, +/-)",
+          "sunset_offset": "Sunset Offset (minutes, +/-)"
+        }
+      },
+      "weather": {
+        "title": "Weather & Lux Compensation",
+        "description": "Compensate for cloudy and rainy days using weather forecasts or physical lux sensors.",
+        "data": {
+          "weather_entity": "Weather Entity",
+          "lux_sensor": "Illuminance (Lux) Sensor",
+          "prioritize_lux": "Prioritize Physical Lux Sensor over Weather Forecast",
+          "cloud_boost_pct": "Cloud Boost Brightness (+%)",
+          "cloud_boost_kelvin": "Cloud Boost Color Temp (+K)"
+        }
+      },
+      "presence": {
+        "title": "Presence & Motion Automation",
+        "description": "Automatically dim and turn off lights when room is empty, with memory for manual adjustments.",
+        "data": {
+          "presence_enable": "Enable Presence Automation",
+          "presence_sensors": "Motion / Presence Sensors (Aqara, mmWave, etc.)",
+          "auto_turn_on": "Automatically turn on lights on motion",
+          "sleep_motion_behavior": "Motion Behavior during Sleep Mode",
+          "motion_debounce": "Motion Debounce / Blind-Time Buffer (seconds, prevents rapid dimming with Aqara sensors)",
+          "turn_on_lux_threshold": "Daylight Turn-On Threshold (lux, 0 = always turn on)",
+          "dim_timeout": "Dim Timeout (seconds without motion before dimming)",
+          "off_timeout": "Off Timeout (seconds after dimming before turning off)",
+          "grace_period": "Grace Period (seconds to remember manual settings when re-entering)",
+          "dim_brightness": "Dimmed Brightness Level (%)"
+        }
+      },
+      "limits": {
+        "title": "Limits, Intervals & Sleep Schedules",
+        "description": "Set brightness and color temperature boundaries, update interval and sleep schedules.",
+        "data": {
+          "min_brightness": "Minimum Brightness (%)",
+          "max_brightness": "Maximum Brightness (%)",
+          "evening_max_brightness": "Evening/Night Brightness Cap (%, 0 = disabled)",
+          "min_color_temp": "Minimum Color Temperature (Warm Kelvin)",
+          "max_color_temp": "Maximum Color Temperature (Cool Kelvin)",
+          "interval": "Update Interval (seconds)",
+          "transition": "Transition Time (seconds)",
+          "override_timeout": "Manual Override Timeout (minutes)",
+          "anti_glare": "Anti-Glare (Prevent blinding light turn-on)",
+          "sleep_schedule_enable": "Enable Automatic Sleep Schedule",
+          "sleep_start_time": "Sleep Mode Start Time",
+          "sleep_end_time": "Sleep Mode End Time",
+          "sleep_brightness": "Sleep Mode Brightness (%)",
+          "sleep_color_temp": "Sleep Mode Color Temp (Kelvin)",
+          "sleep_rgb": "Sleep Mode RGB Color (Color Picker Box)",
+          "sleep_weekend_enable": "Separate Weekend Sleep Schedule (Fri/Sat night, Sat/Sun morning)",
+          "sleep_weekend_start_time": "Weekend: Sleep Start Time",
+          "sleep_weekend_end_time": "Weekend: Sleep End Time",
+          "sleep_entity": "External Bedtime / Sleep Sensor (Optional)"
+        }
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Adaptive Circadian Lighting Settings",
+        "description": "Configure lights, limits, weather, presence, intervals and sleep schedules.",
+        "data": {
+          "lights": "Lights",
+          "calc_mode": "Calculation Mode",
+          "color_mode": "Color Mode",
+          "adapt_only_on_bare_turn_on": "Adapt only on turn-on (static while on)",
+          "sunrise_offset": "Sunrise Offset (minutes, +/-)",
+          "sunset_offset": "Sunset Offset (minutes, +/-)",
+          "weather_entity": "Weather Entity",
+          "lux_sensor": "Illuminance (Lux) Sensor",
+          "min_brightness": "Minimum Brightness (%)",
+          "max_brightness": "Maximum Brightness (%)",
+          "evening_max_brightness": "Evening/Night Brightness Cap (%, 0 = disabled)",
+          "min_color_temp": "Minimum Color Temperature (Warm Kelvin)",
+          "max_color_temp": "Maximum Color Temperature (Cool Kelvin)",
+          "interval": "Update Interval (seconds)",
+          "override_timeout": "Manual Override Timeout (minutes)",
+          "anti_glare": "Anti-Glare (Prevent blinding flashes on turn-on)",
+          "presence_enable": "Enable Presence Automation",
+          "presence_sensors": "Motion / Presence Sensors (Aqara, mmWave, etc.)",
+          "auto_turn_on": "Automatically turn on lights on motion",
+          "sleep_motion_behavior": "Motion Behavior during Sleep Mode",
+          "motion_debounce": "Motion Debounce (seconds, Aqara blind-time protection)",
+          "turn_on_lux_threshold": "Daylight Turn-On Threshold (lux, 0 = always turn on)",
+          "dim_timeout": "Dim Timeout (seconds without motion before dimming)",
+          "off_timeout": "Off Timeout (seconds after dimming before turning off)",
+          "grace_period": "Grace Period (seconds to remember manual settings)",
+          "dim_brightness": "Dimmed Brightness Level (%)",
+          "sleep_schedule_enable": "Enable Automatic Sleep Schedule",
+          "sleep_start_time": "Sleep Mode Start Time",
+          "sleep_end_time": "Sleep Mode End Time",
+          "sleep_brightness": "Sleep Mode Brightness (%)",
+          "sleep_color_temp": "Sleep Mode Color Temp (Kelvin)",
+          "sleep_rgb": "Sleep Mode RGB Color (Color Picker Box)",
+          "sleep_weekend_enable": "Separate Weekend Sleep Schedule (Fri/Sat night, Sat/Sun morning)",
+          "sleep_weekend_start_time": "Weekend: Sleep Start Time",
+          "sleep_weekend_end_time": "Weekend: Sleep End Time",
+          "sleep_entity": "External Bedtime / Sleep Sensor (Optional)"
+        }
+      }
+    }
+  },
+  "entity": {
+    "switch": {
+      "adaptation": { "name": "Adaptation" },
+      "adapt_brightness": { "name": "Adapt Brightness" },
+      "adapt_color": { "name": "Adapt Color" },
+      "sleep_mode": { "name": "Sleep Mode" }
+    },
+    "select": {
+      "profile": { "name": "Profile" },
+      "calc_mode": { "name": "Calculation Mode" },
+      "color_mode": { "name": "Color Mode" }
+    },
+    "sensor": {
+      "target_brightness": { "name": "Target Brightness" },
+      "target_color_temp": { "name": "Target Color Temp" },
+      "target_rgb": { "name": "Target RGB Color" },
+      "phase": { "name": "Circadian Phase" },
+      "weather_boost": { "name": "Weather Boost" },
+      "manual_overrides": { "name": "Manual Overrides" },
+      "presence_state": { "name": "Presence State" }
+    }
+  },
+  "selector": {
+    "calc_modes": {
+      "options": {
+        "sun": "Astronomical Sun Position",
+        "hybrid": "Hybrid (Sun with Fixed Time Anchors)",
+        "curve": "Custom 24h Spline Curve",
+        "lux": "Weather & Lux Compensated"
+      }
+    },
+    "color_modes": {
+      "options": {
+        "kelvin": "Color Temperature (Kelvin)",
+        "rgb": "RGB Color",
+        "auto": "Auto / Hybrid (Kelvin by day, deep RGB at night)"
+      }
+    },
+    "sleep_motion_behaviors": {
+      "options": {
+        "nightlight": "Nightlight (Turn on using sleep mode settings)",
+        "dnd": "Do Not Disturb (Ignore motion, keep lights off)"
+      }
+    }
+  }
+}
