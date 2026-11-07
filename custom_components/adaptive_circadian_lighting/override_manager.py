@@ -83,7 +83,7 @@ class OverrideManager:
 
         self._schedule_timeout(entity_id)
 
-    def reset_override(self, entity_id: Optional[str] = None) -> None:
+    def reset_override(self, entity_id: Optional[str] = None, notify_callback: bool = True) -> None:
         """Reset manual override for a specific entity or all entities."""
         if entity_id:
             if entity_id in self.overridden_lights:
@@ -92,11 +92,11 @@ class OverrideManager:
                 if handle:
                     handle.cancel()
                 _LOGGER.info("OverrideManager: reset override for %s", entity_id)
-                if self.on_override_reset_callback:
+                if notify_callback and self.on_override_reset_callback:
                     self.on_override_reset_callback(entity_id)
         else:
             for ent_id in list(self.overridden_lights.keys()):
-                self.reset_override(ent_id)
+                self.reset_override(ent_id, notify_callback=notify_callback)
 
     def _schedule_timeout(self, entity_id: str) -> None:
         """Schedule automatic timeout reset."""
@@ -120,7 +120,7 @@ class OverrideManager:
             "OverrideManager: override timeout expired for %s. Resuming adaptive control.",
             entity_id,
         )
-        self.reset_override(entity_id)
+        self.reset_override(entity_id, notify_callback=True)
 
     def _handle_light_change(self, event: Event) -> None:
         """Evaluate whether a state change was manual or automated."""
@@ -129,9 +129,9 @@ class OverrideManager:
         new_state = event.data.get("new_state")
 
         if not new_state or new_state.state != "on":
-            # If light turned off, clear override so it re-adapts next time it turns on
+            # If light turned off, clear override silently so it re-adapts next time it turns on
             if old_state and old_state.state == "on" and new_state and new_state.state == "off":
-                self.reset_override(entity_id)
+                self.reset_override(entity_id, notify_callback=False)
             return
 
         # If it was off and just turned on, let anti-glare / coordinator adapt it

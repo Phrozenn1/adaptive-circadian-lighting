@@ -409,10 +409,19 @@ class AdaptiveCoordinator:
             await self._async_apply_to_light(light_id)
             self._already_adapted_lights.add(light_id)
 
-    async def _async_apply_to_light(self, light_id: str, custom_transition: Optional[float] = None) -> None:
+    async def _async_apply_to_light(
+        self,
+        light_id: str,
+        custom_transition: Optional[float] = None,
+        allow_turn_on: bool = False,
+    ) -> None:
         """Send adapted brightness and color to a single light."""
         st = self.hass.states.get(light_id)
         if not st:
+            return
+
+        # Never send turn_on commands to lights that are currently off unless explicitly permitted
+        if st.state != "on" and not allow_turn_on:
             return
 
         modes = st.attributes.get(ATTR_SUPPORTED_COLOR_MODES)
@@ -497,7 +506,7 @@ class AdaptiveCoordinator:
         """Turn on lights with fresh adaptive settings when room reoccupied."""
         self._calculate_target_values()
         for light_id in self.lights:
-            await self._async_apply_to_light(light_id, custom_transition=1.0)
+            await self._async_apply_to_light(light_id, custom_transition=1.0, allow_turn_on=True)
             self._already_adapted_lights.add(light_id)
 
     # --- Override Callbacks ---
@@ -508,6 +517,8 @@ class AdaptiveCoordinator:
         self._notify_listeners()
 
     def _on_override_reset(self, entity_id: str) -> None:
-        """Re-apply adaptive settings when override expires."""
-        self.hass.async_create_task(self._async_apply_to_light(entity_id))
+        """Re-apply adaptive settings when override expires (only if light is currently ON)."""
+        st = self.hass.states.get(entity_id)
+        if st and st.state == "on":
+            self.hass.async_create_task(self._async_apply_to_light(entity_id))
         self._notify_listeners()
