@@ -6,8 +6,24 @@ from unittest.mock import MagicMock
 if "homeassistant" not in sys.modules:
     ha = MagicMock()
     sys.modules["homeassistant"] = ha
-    sys.modules["homeassistant.core"] = MagicMock()
-    sys.modules["homeassistant.config_entries"] = MagicMock()
+    core_mock = MagicMock()
+    core_mock.callback = lambda f: f
+    sys.modules["homeassistant.core"] = core_mock
+    ha.core = core_mock
+
+    class DummyOptionsFlow:
+        def __init__(self, *args, **kwargs):
+            pass
+
+    class DummyConfigFlow:
+        def __init_subclass__(cls, domain=None, **kwargs):
+            super().__init_subclass__(**kwargs)
+
+    ce_mock = MagicMock()
+    ce_mock.OptionsFlow = DummyOptionsFlow
+    ce_mock.ConfigFlow = DummyConfigFlow
+    sys.modules["homeassistant.config_entries"] = ce_mock
+    ha.config_entries = ce_mock
     sys.modules["homeassistant.components"] = MagicMock()
     sys.modules["homeassistant.components.http"] = MagicMock()
     sys.modules["homeassistant.components.light"] = MagicMock()
