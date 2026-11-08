@@ -28,8 +28,84 @@ STATE_DIMMED = "dimmed"
 STATE_OFF = "off"
 
 # Recognized positive presence states across ZHA, Zigbee2MQTT, DeCONZ, Matter and Aqara Hubs
-POSITIVE_STATES = {"on", "open", "detected", "active", "occupied", "true", "1"}
-OCCUPANCY_ATTRIBUTES = ("occupancy", "presence", "motion", "moving", "has_target", "target")
+POSITIVE_STATES = {
+    "on",
+    "open",
+    "detected",
+    "active",
+    "occupied",
+    "true",
+    "yes",
+    "1",
+    "presence",
+    "present",
+    "motion",
+    "moving",
+    "movement",
+    "move",
+    "still",
+    "standing",
+    "stand",
+    "sitting",
+    "occupied_standing",
+    "occupied_sitting",
+    "occupancy",
+    "home",
+    "enter",
+    "entered",
+    "approaching",
+    "someone",
+    "somebody",
+    "person",
+    "fall_detected",
+    "trigger",
+    "triggered",
+}
+
+NEGATIVE_STATES = {
+    "off",
+    "closed",
+    "clear",
+    "standby",
+    "idle",
+    "none",
+    "no_motion",
+    "not_home",
+    "away",
+    "false",
+    "no",
+    "0",
+    "unavailable",
+    "unknown",
+}
+
+OCCUPANCY_ATTRIBUTES = (
+    "occupancy",
+    "presence",
+    "motion",
+    "moving",
+    "movement",
+    "has_target",
+    "target",
+    "targets",
+    "target_count",
+    "targets_detected",
+    "number_of_targets",
+    "radar_status",
+    "motion_state",
+    "motion_status",
+    "presence_state",
+    "presence_status",
+    "detection_status",
+    "presence_event",
+    "detected",
+    "motion_detected",
+    "person",
+    "person_detected",
+    "presence_detected",
+    "people_count",
+    "person_count",
+)
 LUX_ATTRIBUTES = ("illuminance", "lux", "illuminance_lux", "light_level")
 
 
@@ -55,9 +131,11 @@ class PresenceManager:
         on_off_callback: Optional[Callable[[], Any]] = None,
         on_restore_manual_callback: Optional[Callable[[Dict[str, Any]], Any]] = None,
         on_turn_on_adaptive_callback: Optional[Callable[[], Any]] = None,
+        on_state_change_callback: Optional[Callable[[str], Any]] = None,
     ) -> None:
         self.hass = hass
-        self.sensors = [sensors] if isinstance(sensors, str) else list(sensors or [])
+        raw_sensors = [sensors] if isinstance(sensors, str) else list(sensors or [])
+        self.sensors = [s.strip() for s in raw_sensors if s and str(s).strip()]
         self.dim_timeout = dim_timeout
         self.off_timeout = off_timeout
         self.grace_period = grace_period
@@ -74,6 +152,7 @@ class PresenceManager:
         self.on_off_callback = on_off_callback
         self.on_restore_manual_callback = on_restore_manual_callback
         self.on_turn_on_adaptive_callback = on_turn_on_adaptive_callback
+        self.on_state_change_callback = on_state_change_callback
 
         self.room_state: str = STATE_OFF
         self.last_motion_time: datetime = datetime.now(timezone.utc)
@@ -132,31 +211,80 @@ class PresenceManager:
         """Check if any manual states are saved."""
         return len(self.saved_manual_states) > 0
 
+    def _set_room_state(self, new_state: str) -> None:
+        """Update room state and invoke on_state_change_callback if state changed."""
+        old_state = self.room_state
+        self.room_state = new_state
+        if old_state != new_state:
+            _LOGGER.debug(
+                "PresenceManager: room state changed from %s to %s",
+                old_state,
+                new_state,
+            )
+            if self.on_state_change_callback:
+                self._dispatch_callback(self.on_state_change_callback, new_state)
+
     def is_sensor_triggered(self, state_obj: Any) -> bool:
-        """Evaluate if an Aqara or standard presence sensor reports occupancy."""
-        if not state_obj:
+        """Evaluate if an Aqara, mmWave radar, or standard presence sensor reports occupancy."""
+        if not state_obj or getattr(state_obj, "state", None) is None:
             return False
 
         # Check primary state
-        st = str(state_obj.state).lower()
+        st = str(state_obj.state).strip().lower()
+        if st in ("unavailable", "unknown"):
+            return False
+
         if st in POSITIVE_STATES:
             return True
 
-        # Check Aqara specific attributes (FP2 zones, PIR motion flag, etc.)
+        # Check if state itself is a positive numeric count (e.g. radar targets: "1", "2")
+        try:
+            val_num = float(st)
+            if val_num > 0:
+                return True
+        except (ValueError, TypeError):
+            pass
+
+        # Check Aqara/mmWave specific attributes (FP2 zones, PIR motion flag, radar targets, etc.)
         attrs = getattr(state_obj, "attributes", {}) or {}
         for key in OCCUPANCY_ATTRIBUTES:
+            if key not in attrs:
+                continue
             val = attrs.get(key)
-            if val is True or str(val).lower() in ("true", "on", "yes", "1"):
+            if val is None:
+                continue
+            if isinstance(val, bool):
+                if val:
+                    return True
+                continue
+            if isinstance(val, (int, float)):
+                if val > 0:
+                    return True
+                continue
+            if isinstance(val, (list, dict, set)):
+                if len(val) > 0:
+                    return True
+                continue
+            val_str = str(val).strip().lower()
+            if val_str in POSITIVE_STATES:
                 return True
+            try:
+                if float(val_str) > 0:
+                    return True
+            except (ValueError, TypeError):
+                pass
 
         return False
 
     def is_occupied(self) -> bool:
         """Check if any configured presence sensor is currently triggered."""
         for sensor_id in self.sensors:
-            st = self.hass.states.get(sensor_id)
-            if self.is_sensor_triggered(st):
-                return True
+            try:
+                st = self.hass.states.get(sensor_id)
+                if self.is_sensor_triggered(st):
+                    return True
+            except Exception as err:
+                _LOGGER.warning("PresenceManager: error evaluating sensor %s: %s", sensor_id, err)
         return False
 
     def are_lights_off(self) -> bool:
@@ -171,7 +299,7 @@ class PresenceManager:
     def on_lights_turned_off(self) -> None:
         """Handle when all lights in the room are turned off."""
         self._cancel_timers()
-        self.room_state = STATE_OFF
+        self._set_room_state(STATE_OFF)
         self.last_turned_off_time = datetime.now(timezone.utc)
         _LOGGER.debug("PresenceManager: lights turned off; room state set to OFF.")
 
@@ -202,13 +330,13 @@ class PresenceManager:
     def _check_initial_sensor_state(self) -> None:
         """Check current sensor state at startup."""
         if self.is_occupied():
-            self.room_state = STATE_OCCUPIED
+            self._set_room_state(STATE_OCCUPIED)
             self.last_motion_time = datetime.now(timezone.utc)
             self._cancel_timers()
             if self.auto_turn_on and self.are_lights_off():
                 self._handle_reoccupancy(datetime.now(timezone.utc))
         else:
-            self.room_state = STATE_OFF
+            self._set_room_state(STATE_OFF)
             self.last_turned_off_time = datetime.now(timezone.utc)
             self._cancel_timers()
 
@@ -233,7 +361,7 @@ class PresenceManager:
             self.last_motion_time = now
             lights_off = self.are_lights_off()
             was_empty = (self.room_state in (STATE_DIMMED, STATE_OFF)) or lights_off
-            self.room_state = STATE_OCCUPIED
+            self._set_room_state(STATE_OCCUPIED)
 
             if was_empty:
                 self._handle_reoccupancy(now)
@@ -243,12 +371,12 @@ class PresenceManager:
                 if not self.are_lights_off():
                     self._schedule_debounce_or_dim()
                 else:
-                    self.room_state = STATE_OFF
+                    self._set_room_state(STATE_OFF)
                     self._cancel_timers()
 
     def _handle_reoccupancy(self, now: datetime) -> None:
         """Handle person returning to the room."""
-        self.room_state = STATE_OCCUPIED
+        self._set_room_state(STATE_OCCUPIED)
 
         if not self.auto_turn_on:
             _LOGGER.debug(
@@ -331,7 +459,7 @@ class PresenceManager:
         if self.is_occupied():
             return
 
-        self.room_state = STATE_DIMMED
+        self._set_room_state(STATE_DIMMED)
         _LOGGER.info(
             "PresenceManager: room empty for %ss. Dimming lights to %s%%.",
             self.dim_timeout,
@@ -349,7 +477,7 @@ class PresenceManager:
         if self.is_occupied():
             return
 
-        self.room_state = STATE_OFF
+        self._set_room_state(STATE_OFF)
         self.last_turned_off_time = datetime.now(timezone.utc)
         _LOGGER.info(
             "PresenceManager: room still empty after %ss. Turning off lights completely.",
@@ -371,7 +499,10 @@ class PresenceManager:
             self._off_timer_handle = None
 
     def _dispatch_callback(self, func: Callable[..., Any], *args: Any) -> None:
-        """Safely invoke async or sync callback."""
-        res = func(*args)
-        if asyncio.iscoroutine(res):
-            self.hass.async_create_task(res)
+        """Safely invoke async or sync callback with exception handling."""
+        try:
+            res = func(*args)
+            if asyncio.iscoroutine(res):
+                self.hass.async_create_task(res)
+        except Exception as err:
+            _LOGGER.error("PresenceManager: error executing callback %s: %s", func, err)

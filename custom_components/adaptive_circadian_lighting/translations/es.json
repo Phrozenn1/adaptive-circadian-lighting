@@ -140,6 +140,9 @@
       "weather_boost": { "name": "Compensación Clima" },
       "manual_overrides": { "name": "Anulaciones Manuales" },
       "presence_state": { "name": "Estado de Presencia" }
+    },
+    "binary_sensor": {
+      "occupancy": { "name": "Ocupación" }
     }
   },
   "selector": {

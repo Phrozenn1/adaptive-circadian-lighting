@@ -107,8 +107,15 @@ def prepare_light_service_data(
 
     # 1. Explicit RGB override (e.g. from Sleep profile or manual RGB)
     if rgb_override is not None:
-        if supports_rgb or not supports_kelvin:
+        if supports_rgb:
             service_data["rgb_color"] = list(rgb_override)
+            return service_data
+        elif supports_kelvin:
+            converted_k = rgb_to_kelvin(*rgb_override)
+            clamped_k = max(bulb_min_k, min(bulb_max_k, converted_k))
+            service_data["color_temp_kelvin"] = clamped_k
+            return service_data
+        else:
             return service_data
 
     # 2. RGB Mode Preferred

@@ -181,8 +181,9 @@ class AdaptiveCoordinator:
         presence_enabled = config.get(CONF_PRESENCE_ENABLE, False)
         presence_sensors_raw = config.get(CONF_PRESENCE_SENSORS, [])
         presence_sensors: List[str] = [presence_sensors_raw] if isinstance(presence_sensors_raw, str) else list(presence_sensors_raw or [])
+        presence_sensors = [s.strip() for s in presence_sensors if s and str(s).strip()]
         self.presence_mgr: Optional[PresenceManager] = None
-        if presence_enabled and presence_sensors:
+        if (presence_enabled or bool(presence_sensors)) and presence_sensors:
             self.presence_mgr = PresenceManager(
                 hass,
                 sensors=presence_sensors,
@@ -201,6 +202,7 @@ class AdaptiveCoordinator:
                 on_off_callback=self._on_presence_off,
                 on_restore_manual_callback=self._on_presence_restore_manual,
                 on_turn_on_adaptive_callback=self._on_presence_turn_on_adaptive,
+                on_state_change_callback=self._on_presence_state_change,
             )
 
         self.weather_engine = WeatherEngine(
@@ -234,6 +236,7 @@ class AdaptiveCoordinator:
             on_override_reset_callback=self._on_override_reset,
             on_manual_change_callback=self._on_manual_change,
             on_lights_off_callback=self._handle_light_turned_off,
+            on_lights_on_callback=self._handle_light_turned_on,
         )
 
         anti_glare_on = config.get(CONF_ANTI_GLARE, True)
@@ -480,16 +483,26 @@ class AdaptiveCoordinator:
         )
 
     # --- Presence Callbacks ---
+    def _on_presence_state_change(self, new_state: Optional[str] = None) -> None:
+        """Handle room presence state transition and notify observers immediately."""
+        self._notify_listeners()
+
     async def _on_presence_dim(self) -> None:
         """Dim active lights when room has been empty for dim_timeout."""
         dim_pct = self.presence_mgr.dim_brightness if self.presence_mgr else 10
         for light_id in self.lights:
             st = self.hass.states.get(light_id)
             if st and st.state == "on":
+                payload = {
+                    "entity_id": light_id,
+                    "brightness_pct": dim_pct,
+                    "transition": 3.0,
+                }
+                self.override_mgr.record_sent_state(light_id, payload)
                 await self.hass.services.async_call(
                     LIGHT_DOMAIN,
                     "turn_on",
-                    {"entity_id": light_id, "brightness_pct": dim_pct, "transition": 3.0},
+                    payload,
                     blocking=False,
                 )
 
@@ -521,6 +534,16 @@ class AdaptiveCoordinator:
         if self._are_all_lights_off():
             if self.presence_mgr:
                 self.presence_mgr.on_lights_turned_off()
+            else:
+                self._notify_listeners()
+        else:
+            self._notify_listeners()
+
+    def _handle_light_turned_on(self, entity_id: str) -> None:
+        """Handle when a light is turned on."""
+        if self.presence_mgr and self.presence_mgr.room_state == "off":
+            self.presence_mgr._set_room_state("occupied")
+        else:
             self._notify_listeners()
 
     async def _on_presence_restore_manual(self, saved_states: Dict[str, Dict[str, Any]]) -> None:
@@ -548,8 +571,10 @@ class AdaptiveCoordinator:
         """Turn on lights with fresh adaptive settings when room reoccupied."""
         self._calculate_target_values()
         for light_id in self.lights:
+            self.override_mgr.reset_override(light_id, notify_callback=False)
             await self._async_apply_to_light(light_id, custom_transition=1.0, allow_turn_on=True)
             self._already_adapted_lights.add(light_id)
+        self._notify_listeners()
 
     # --- Override Callbacks ---
     def _on_manual_change(self, entity_id: str, attributes: Dict[str, Any]) -> None:

@@ -190,7 +190,7 @@ class AdaptiveCircadianConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             {
                 vol.Required(CONF_PRESENCE_ENABLE, default=False): bool,
                 vol.Optional(CONF_PRESENCE_SENSORS): selector.EntitySelector(
-                    selector.EntitySelectorConfig(domain="binary_sensor", multiple=True)
+                    selector.EntitySelectorConfig(domain=["binary_sensor", "sensor", "input_boolean"], multiple=True)
                 ),
                 vol.Required(CONF_AUTO_TURN_ON, default=DEFAULT_AUTO_TURN_ON): bool,
                 vol.Required(CONF_SLEEP_MOTION_BEHAVIOR, default=DEFAULT_SLEEP_MOTION_BEHAVIOR): selector.SelectSelector(
@@ -383,7 +383,7 @@ class AdaptiveCircadianOptionsFlow(config_entries.OptionsFlow):
             vol.Required(CONF_ANTI_GLARE, default=bool(current.get(CONF_ANTI_GLARE, True))): bool,
             vol.Required(CONF_PRESENCE_ENABLE, default=bool(current.get(CONF_PRESENCE_ENABLE, False))): bool,
             vol.Optional(CONF_PRESENCE_SENSORS): selector.EntitySelector(
-                selector.EntitySelectorConfig(domain="binary_sensor", multiple=True)
+                selector.EntitySelectorConfig(domain=["binary_sensor", "sensor", "input_boolean"], multiple=True)
             ),
             vol.Required(CONF_AUTO_TURN_ON, default=bool(current.get(CONF_AUTO_TURN_ON, DEFAULT_AUTO_TURN_ON))): bool,
             vol.Required(CONF_SLEEP_MOTION_BEHAVIOR, default=current.get(CONF_SLEEP_MOTION_BEHAVIOR) or DEFAULT_SLEEP_MOTION_BEHAVIOR): selector.SelectSelector(

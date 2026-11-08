@@ -103,6 +103,37 @@ class TestColorUtils(unittest.TestCase):
         )
         self.assertEqual(payload["rgb_color"], [255, 50, 0])
 
+    def test_rgb_override_dimmable_bulb_never_receives_rgb(self):
+        # A dimmable bulb only supporting brightness must never receive rgb_color or color_temp_kelvin
+        payload = prepare_light_service_data(
+            supported_modes=["brightness"],
+            min_kelvin=None,
+            max_kelvin=None,
+            brightness_pct=10,
+            target_kelvin=2700,
+            mode_pref=COLOR_MODE_AUTO,
+            rgb_override=(255, 60, 0),
+        )
+        self.assertEqual(payload, {"brightness_pct": 10})
+        self.assertNotIn("rgb_color", payload)
+        self.assertNotIn("color_temp_kelvin", payload)
+
+    def test_rgb_override_kelvin_only_bulb_converts_to_kelvin(self):
+        # A bulb supporting only color_temp (no RGB) should convert rgb_override to kelvin
+        payload = prepare_light_service_data(
+            supported_modes=["color_temp"],
+            min_kelvin=2200,
+            max_kelvin=6500,
+            brightness_pct=15,
+            target_kelvin=3000,
+            mode_pref=COLOR_MODE_AUTO,
+            rgb_override=(255, 147, 41),
+        )
+        self.assertEqual(payload["brightness_pct"], 15)
+        self.assertIn("color_temp_kelvin", payload)
+        self.assertTrue(2200 <= payload["color_temp_kelvin"] <= 6500)
+        self.assertNotIn("rgb_color", payload)
+
     def test_prepare_light_service_data_onoff_light(self):
         payload = prepare_light_service_data(
             supported_modes=["onoff"],

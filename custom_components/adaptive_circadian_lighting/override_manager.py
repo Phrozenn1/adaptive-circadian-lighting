@@ -25,6 +25,7 @@ class OverrideManager:
         on_override_reset_callback: Optional[Callable[[str], Any]] = None,
         on_manual_change_callback: Optional[Callable[[str, Dict[str, Any]], Any]] = None,
         on_lights_off_callback: Optional[Callable[[str], Any]] = None,
+        on_lights_on_callback: Optional[Callable[[str], Any]] = None,
     ) -> None:
         self.hass = hass
         self.lights = lights
@@ -32,6 +33,7 @@ class OverrideManager:
         self.on_override_reset_callback = on_override_reset_callback
         self.on_manual_change_callback = on_manual_change_callback
         self.on_lights_off_callback = on_lights_off_callback
+        self.on_lights_on_callback = on_lights_on_callback
 
         # Track what our integration last sent so we don't trigger ourselves
         self._last_sent_states: Dict[str, Dict[str, Any]] = {}
@@ -138,8 +140,10 @@ class OverrideManager:
                 self.on_lights_off_callback(entity_id)
             return
 
-        # If it was off and just turned on, let anti-glare / coordinator adapt it
+        # If it was off and just turned on, notify callback and let anti-glare / coordinator adapt it
         if old_state and old_state.state != "on":
+            if self.on_lights_on_callback:
+                self.on_lights_on_callback(entity_id)
             return
 
         # Compare new state against last sent coordinator state

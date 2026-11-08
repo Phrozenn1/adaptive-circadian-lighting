@@ -34,10 +34,41 @@ if "homeassistant" not in sys.modules:
     sys.modules["homeassistant.components.switch"] = MagicMock()
     sys.modules["homeassistant.components.select"] = MagicMock()
     sys.modules["homeassistant.components.sensor"] = MagicMock()
+    bs_mock = MagicMock()
+    class DummyBinarySensorEntity:
+        _attr_has_entity_name = True
+        _attr_device_class = None
+        _attr_translation_key = None
+        _attr_unique_id = None
+        _attr_name = None
+        _attr_device_info = None
+
+        @property
+        def unique_id(self):
+            return self._attr_unique_id
+
+        def async_on_remove(self, func):
+            pass
+
+        async def async_write_ha_state(self):
+            pass
+
+    class DummyBinarySensorDeviceClass:
+        OCCUPANCY = "occupancy"
+        MOTION = "motion"
+        PRESENCE = "presence"
+
+    bs_mock.BinarySensorEntity = DummyBinarySensorEntity
+    bs_mock.BinarySensorDeviceClass = DummyBinarySensorDeviceClass
+    sys.modules["homeassistant.components.binary_sensor"] = bs_mock
+    ha.components.binary_sensor = bs_mock
     sys.modules["homeassistant.const"] = MagicMock()
     sys.modules["homeassistant.const"].EVENT_CALL_SERVICE = "call_service"
-    sys.modules["homeassistant.helpers"] = MagicMock()
+    helpers_mock = MagicMock()
+    helpers_mock.__path__ = []
+    sys.modules["homeassistant.helpers"] = helpers_mock
     sys.modules["homeassistant.helpers.event"] = MagicMock()
     sys.modules["homeassistant.helpers.selector"] = MagicMock()
     sys.modules["homeassistant.helpers.config_validation"] = MagicMock()
+    sys.modules["homeassistant.helpers.entity_platform"] = MagicMock()
     sys.modules["voluptuous"] = MagicMock()

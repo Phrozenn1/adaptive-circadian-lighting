@@ -23,7 +23,7 @@ from .coordinator import AdaptiveCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS = ["switch", "select", "sensor"]
+PLATFORMS = ["switch", "select", "sensor", "binary_sensor"]
 
 CONFIG_SCHEMA = cv.empty_config_schema(DOMAIN)
 

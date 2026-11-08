@@ -233,6 +233,136 @@ class TestPresenceManager(unittest.TestCase):
         self.hass.states.get.side_effect = lambda eid: MockState("350.0") if eid == "sensor.kitchen_lux" else MockState("off")
         self.assertEqual(pm.get_ambient_lux(), 350.0)
 
+    def test_mmwave_and_radar_positive_states(self):
+        pm = PresenceManager(self.hass, sensors=["sensor.radar"])
+        positive_test_states = [
+            "presence",
+            "present",
+            "motion",
+            "moving",
+            "movement",
+            "move",
+            "still",
+            "standing",
+            "stand",
+            "sitting",
+            "occupied_standing",
+            "occupied_sitting",
+            "home",
+            "enter",
+            "entered",
+            "approaching",
+            "someone",
+            "somebody",
+            "person",
+            "fall_detected",
+            "trigger",
+            "triggered",
+            "occupied",
+            "detected",
+            "active",
+            "yes",
+            "1",
+            "2",
+            "5",
+        ]
+        for st in positive_test_states:
+            with self.subTest(state=st):
+                state_obj = MockState(st)
+                self.assertTrue(pm.is_sensor_triggered(state_obj), f"State '{st}' should be recognized as triggered")
+
+    def test_mmwave_negative_states(self):
+        pm = PresenceManager(self.hass, sensors=["sensor.radar"])
+        negative_test_states = [
+            "off",
+            "clear",
+            "standby",
+            "idle",
+            "none",
+            "no_motion",
+            "not_home",
+            "away",
+            "false",
+            "0",
+            "unavailable",
+            "unknown",
+        ]
+        for st in negative_test_states:
+            with self.subTest(state=st):
+                state_obj = MockState(st)
+                self.assertFalse(pm.is_sensor_triggered(state_obj), f"State '{st}' should NOT be recognized as triggered")
+
+    def test_radar_attributes_trigger_occupancy(self):
+        pm = PresenceManager(self.hass, sensors=["sensor.mmwave"])
+        # Even if main state is 'idle' or '0', attributes with active radar targets trigger occupancy
+        attr_cases = [
+            {"target_count": 1},
+            {"targets": 2},
+            {"targets": [{"x": 100, "y": 200}]},
+            {"target": {"id": 1, "status": "active"}},
+            {"radar_status": "moving"},
+            {"motion_state": "motion"},
+            {"presence_state": "still"},
+            {"movement": True},
+            {"detection_status": "movement"},
+            {"person": 1},
+            {"has_target": True},
+            {"targets_detected": 1},
+            {"number_of_targets": 2},
+            {"person_detected": True},
+            {"presence_detected": True},
+            {"people_count": 1},
+        ]
+        for attrs in attr_cases:
+            with self.subTest(attrs=attrs):
+                state_obj = MockState("idle", attrs)
+                self.assertTrue(pm.is_sensor_triggered(state_obj), f"Attributes '{attrs}' should trigger occupancy")
+
+    def test_empty_target_collections_do_not_trigger_occupancy(self):
+        pm = PresenceManager(self.hass, sensors=["sensor.mmwave"])
+        empty_attr_cases = [
+            {"targets": []},
+            {"target": {}},
+            {"target_count": 0},
+            {"targets_detected": 0},
+            {"has_target": False},
+            {"radar_status": "idle"},
+            {"motion_state": "clear"},
+        ]
+        for attrs in empty_attr_cases:
+            with self.subTest(attrs=attrs):
+                state_obj = MockState("idle", attrs)
+                self.assertFalse(pm.is_sensor_triggered(state_obj), f"Attributes '{attrs}' should not trigger occupancy")
+
+    def test_on_state_change_callback_invoked(self):
+        state_changes = []
+        def state_change_cb(new_state):
+            state_changes.append(new_state)
+
+        pm = PresenceManager(
+            self.hass,
+            sensors=["binary_sensor.motion"],
+            on_state_change_callback=state_change_cb,
+        )
+        self.assertEqual(pm.room_state, STATE_OFF)
+
+        # Transition to OCCUPIED
+        pm._set_room_state(STATE_OCCUPIED)
+        self.assertEqual(state_changes, [STATE_OCCUPIED])
+
+        # Setting same state should not trigger callback again
+        pm._set_room_state(STATE_OCCUPIED)
+        self.assertEqual(state_changes, [STATE_OCCUPIED])
+
+        # Transition to DIMMED
+        pm._set_room_state(STATE_DIMMED)
+        self.assertEqual(state_changes, [STATE_OCCUPIED, STATE_DIMMED])
+
+        # Transition to OFF
+        pm._set_room_state(STATE_OFF)
+        self.assertEqual(state_changes, [STATE_OCCUPIED, STATE_DIMMED, STATE_OFF])
+
+
 
 if __name__ == "__main__":
     unittest.main()
