@@ -410,6 +410,18 @@ class TestPresenceManager(unittest.TestCase):
 
         self.assertTrue(callback_called)
 
+    def test_aqara_fp1_z2m_left_enter_and_right_enter(self):
+        pm = PresenceManager(self.hass, sensors=["sensor.kitchen_fp1_event"])
+        self.assertTrue(pm.is_sensor_triggered(MockState("left_enter")))
+        self.assertTrue(pm.is_sensor_triggered(MockState("right_enter")))
+
+    def test_parasoll_string_contact_state(self):
+        pm = PresenceManager(self.hass, sensors=["binary_sensor.parasoll"])
+        # Some MQTT bridges serialize False as string "false" or "0"
+        self.assertTrue(pm.is_sensor_triggered(MockState("off", {"contact": "false"})))
+        self.assertTrue(pm.is_sensor_triggered(MockState("off", {"contact": "0"})))
+        self.assertFalse(pm.is_sensor_triggered(MockState("off", {"contact": "true"})))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -190,8 +190,8 @@ class OverrideManager:
                 self.on_lights_off_callback(entity_id)
             return
 
-        # If it was off and just turned on, notify callback and let anti-glare / coordinator adapt it
-        if old_state and old_state.state != "on":
+        # If it was off and just turned on (or first seen), notify callback and let anti-glare / coordinator adapt it
+        if old_state is None or old_state.state != "on":
             if self.on_lights_on_callback:
                 self.on_lights_on_callback(entity_id)
             return
@@ -216,8 +216,8 @@ class OverrideManager:
 
             # Brightness check (handling 0-255 vs 0-100% scaling and rounding)
             expected_b = last_sent.get("brightness")
-            if expected_b is not None and "brightness" in new_attrs:
-                actual_b = new_attrs["brightness"]
+            actual_b = new_attrs.get("brightness")
+            if expected_b is not None and actual_b is not None:
                 # 8 units out of 255 is ~3% tolerance for dimmer rounding/quantization
                 if abs(actual_b - expected_b) > 8:
                     matches_sent = False
@@ -225,12 +225,12 @@ class OverrideManager:
             # Color temperature check (handling Kelvin vs Mireds conversion rounding)
             expected_k = last_sent.get("color_temp_kelvin")
             expected_m = last_sent.get("color_temp")
+            actual_k = new_attrs.get("color_temp_kelvin")
+            actual_m = new_attrs.get("color_temp")
             if expected_k is not None:
-                actual_k = new_attrs.get("color_temp_kelvin")
-                actual_m = new_attrs.get("color_temp")
                 ct_ok = False
                 if actual_k is not None:
-                    # Zigbee mired rounding error at high Kelvin can be up to 50-60K
+                    # Zigbee mired rounding error at high Kelvin can be up to 60K
                     if abs(actual_k - expected_k) <= 60:
                         ct_ok = True
                     elif expected_m and actual_k > 0:
@@ -245,9 +245,9 @@ class OverrideManager:
 
             # RGB color check
             expected_rgb = last_sent.get("rgb_color")
-            if expected_rgb is not None and "rgb_color" in new_attrs:
-                actual_rgb = new_attrs["rgb_color"]
-                if not (actual_rgb and len(actual_rgb) >= 3 and len(expected_rgb) >= 3 and
+            actual_rgb = new_attrs.get("rgb_color")
+            if expected_rgb is not None and actual_rgb is not None:
+                if not (len(actual_rgb) >= 3 and len(expected_rgb) >= 3 and
                         all(abs(a - b) <= 15 for a, b in zip(actual_rgb[:3], expected_rgb[:3]))):
                     matches_sent = False
 
@@ -256,19 +256,30 @@ class OverrideManager:
                 return
 
         # 3. Detect actual manual changes
+        new_b = new_attrs.get("brightness")
+        old_b = old_attrs.get("brightness")
         b_changed = (
-            "brightness" in new_attrs
-            and abs(new_attrs.get("brightness", 0) - old_attrs.get("brightness", 0)) > 8
+            new_b is not None
+            and old_b is not None
+            and abs(new_b - old_b) > 8
         )
-        ct_changed = False
-        if "color_temp_kelvin" in new_attrs:
-            ct_changed = abs(new_attrs.get("color_temp_kelvin", 0) - old_attrs.get("color_temp_kelvin", 0)) > 60
-        elif "color_temp" in new_attrs:
-            ct_changed = abs(new_attrs.get("color_temp", 0) - old_attrs.get("color_temp", 0)) > 4
 
+        new_k = new_attrs.get("color_temp_kelvin")
+        old_k = old_attrs.get("color_temp_kelvin")
+        new_m = new_attrs.get("color_temp")
+        old_m = old_attrs.get("color_temp")
+        ct_changed = False
+        if new_k is not None and old_k is not None:
+            ct_changed = abs(new_k - old_k) > 60
+        elif new_m is not None and old_m is not None:
+            ct_changed = abs(new_m - old_m) > 4
+
+        new_rgb = new_attrs.get("rgb_color")
+        old_rgb = old_attrs.get("rgb_color")
         rgb_changed = (
-            "rgb_color" in new_attrs
-            and new_attrs.get("rgb_color") != old_attrs.get("rgb_color")
+            new_rgb is not None
+            and old_rgb is not None
+            and new_rgb != old_rgb
         )
 
         if b_changed or ct_changed or rgb_changed:

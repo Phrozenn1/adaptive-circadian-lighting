@@ -205,6 +205,7 @@ class AdaptiveCoordinator:
         presence_enabled = config.get(CONF_PRESENCE_ENABLE, False)
         presence_sensors_raw = config.get(CONF_PRESENCE_SENSORS, [])
         presence_sensors: List[str] = _normalize_entity_list(presence_sensors_raw)
+        self.presence_sensors: List[str] = presence_sensors
         self.presence_mgr: Optional[PresenceManager] = None
         if (presence_enabled or bool(presence_sensors)) and presence_sensors:
             self.presence_mgr = PresenceManager(
@@ -318,8 +319,11 @@ class AdaptiveCoordinator:
 
     def _notify_listeners(self) -> None:
         """Notify entity observers."""
-        for cb in self._listeners:
-            cb()
+        for cb in list(self._listeners):
+            try:
+                cb()
+            except Exception as err:
+                _LOGGER.error("AdaptiveCoordinator: error notifying listener %s: %s", cb, err)
 
     def _get_solar_elevation(self) -> Optional[float]:
         """Fetch solar elevation from sun.sun entity if available."""
@@ -417,7 +421,7 @@ class AdaptiveCoordinator:
             else None
         )
 
-        return prepare_light_service_data(
+        payload = prepare_light_service_data(
             modes,
             min_k,
             max_k,
@@ -427,6 +431,9 @@ class AdaptiveCoordinator:
             rgb_override=rgb_override,
             transition=0.5,
         )
+        payload["entity_id"] = entity_id
+        self.override_mgr.record_sent_state(entity_id, payload)
+        return payload
 
     async def _async_periodic_update(self, _now: Any = None) -> None:
         """Periodic loop to adapt lights."""
@@ -584,6 +591,13 @@ class AdaptiveCoordinator:
         for light_id in self.lights:
             if light_id in saved_states:
                 attrs = saved_states[light_id]
+                st = self.hass.states.get(light_id)
+                raw_modes = st.attributes.get(ATTR_SUPPORTED_COLOR_MODES) if (st and getattr(st, "attributes", None)) else None
+                modes_set = set(raw_modes) if (raw_modes is not None and isinstance(raw_modes, (list, tuple, set))) else set()
+                is_dimmable_only = bool(modes_set) and (modes_set <= {"brightness", "onoff"})
+                supports_kelvin = ("color_temp" in modes_set or "color_temp_kelvin" in modes_set) if modes_set else True
+                supports_rgb = bool({"rgb", "rgbw", "rgbww", "xy", "hs"} & modes_set) if modes_set else True
+
                 payload: Dict[str, Any] = {"entity_id": light_id, "transition": 1.0}
                 b = attrs.get("brightness")
                 if b is not None and b > 0:
@@ -591,12 +605,15 @@ class AdaptiveCoordinator:
                 else:
                     payload["brightness_pct"] = self.target_brightness
 
-                if attrs.get("color_temp_kelvin") is not None:
-                    payload["color_temp_kelvin"] = attrs["color_temp_kelvin"]
-                elif attrs.get("rgb_color") is not None:
-                    payload["rgb_color"] = attrs["rgb_color"]
-                else:
-                    payload["color_temp_kelvin"] = self.target_kelvin
+                if not is_dimmable_only:
+                    if attrs.get("color_temp_kelvin") is not None and supports_kelvin:
+                        payload["color_temp_kelvin"] = attrs["color_temp_kelvin"]
+                    elif attrs.get("rgb_color") is not None and supports_rgb:
+                        payload["rgb_color"] = attrs["rgb_color"]
+                    elif supports_kelvin:
+                        payload["color_temp_kelvin"] = self.target_kelvin
+                    elif supports_rgb:
+                        payload["rgb_color"] = list(kelvin_to_rgb(self.target_kelvin))
 
                 self.override_mgr.record_sent_state(light_id, payload)
                 self.override_mgr.set_manual_override(light_id, attrs)
