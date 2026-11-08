@@ -140,6 +140,9 @@
       "weather_boost": { "name": "Boost météo" },
       "manual_overrides": { "name": "Dérogations manuelles" },
       "presence_state": { "name": "État de présence" }
+    },
+    "binary_sensor": {
+      "occupancy": { "name": "Occupation" }
     }
   },
   "selector": {
