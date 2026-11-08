@@ -260,6 +260,92 @@ class TestOverrideManager(unittest.TestCase):
         mgr._handle_light_change(event)
         self.assertFalse(mgr.is_overridden("light.living_room"))
 
+    def test_gradual_rotary_dimming_detected_as_override(self):
+        # User dims kitchen light gradually using a rotary dimmer (steps of <= 8 units)
+        mgr = OverrideManager(self.hass, lights=["light.kitchen"])
+        mgr.record_sent_state("light.kitchen", {
+            "brightness_pct": 100,  # 255
+            "color_temp_kelvin": 4000,
+            "transition": 0.0,
+        })
+        from datetime import datetime, timezone, timedelta
+        mgr._last_sent_states["light.kitchen"]["timestamp"] = datetime.now(timezone.utc) - timedelta(seconds=10)
+
+        # Step 1: 255 -> 250 (diff 5 <= 15)
+        e1 = MagicMock()
+        e1.data = {
+            "entity_id": "light.kitchen",
+            "old_state": MagicMock(state="on", attributes={"brightness": 255, "color_temp_kelvin": 4000}),
+            "new_state": MagicMock(state="on", attributes={"brightness": 250, "color_temp_kelvin": 4000}),
+        }
+        mgr._handle_light_change(e1)
+        self.assertFalse(mgr.is_overridden("light.kitchen"))
+
+        # Step 2: 250 -> 244 (diff 6 <= 8, but total departure from 255 is 11 <= 15)
+        e2 = MagicMock()
+        e2.data = {
+            "entity_id": "light.kitchen",
+            "old_state": MagicMock(state="on", attributes={"brightness": 250, "color_temp_kelvin": 4000}),
+            "new_state": MagicMock(state="on", attributes={"brightness": 244, "color_temp_kelvin": 4000}),
+        }
+        mgr._handle_light_change(e2)
+        self.assertFalse(mgr.is_overridden("light.kitchen"))
+
+        # Step 3: 244 -> 235 (diff 9, total departure from 255 is 20 > 15)
+        e3 = MagicMock()
+        e3.data = {
+            "entity_id": "light.kitchen",
+            "old_state": MagicMock(state="on", attributes={"brightness": 244, "color_temp_kelvin": 4000}),
+            "new_state": MagicMock(state="on", attributes={"brightness": 235, "color_temp_kelvin": 4000}),
+        }
+        mgr._handle_light_change(e3)
+        self.assertTrue(mgr.is_overridden("light.kitchen"))
+
+        # Step 4: 235 -> 230 (further dimming while already overridden updates override state)
+        e4 = MagicMock()
+        e4.data = {
+            "entity_id": "light.kitchen",
+            "old_state": MagicMock(state="on", attributes={"brightness": 235, "color_temp_kelvin": 4000}),
+            "new_state": MagicMock(state="on", attributes={"brightness": 230, "color_temp_kelvin": 4000}),
+        }
+        mgr._handle_light_change(e4)
+        self.assertTrue(mgr.is_overridden("light.kitchen"))
+
+    def test_dimmer_adjustment_during_transition_outside_ramp_detected(self):
+        mgr = OverrideManager(self.hass, lights=["light.kitchen"])
+        mgr.record_sent_state("light.kitchen", {
+            "brightness_pct": 70,  # 179
+            "color_temp_kelvin": 4000,
+            "transition": 5.0,
+        })
+        # Coordinator is ramping from 100 to 179 over 5 seconds.
+        # User suddenly turns dimmer down to 40 (outside ramp [95, 184])
+        event = MagicMock()
+        event.data = {
+            "entity_id": "light.kitchen",
+            "old_state": MagicMock(state="on", attributes={"brightness": 100, "color_temp_kelvin": 4000}),
+            "new_state": MagicMock(state="on", attributes={"brightness": 40, "color_temp_kelvin": 4000}),
+        }
+        mgr._handle_light_change(event)
+        self.assertTrue(mgr.is_overridden("light.kitchen"))
+
+    def test_light_turned_on_with_manual_brightness_triggers_override(self):
+        mgr = OverrideManager(self.hass, lights=["light.kitchen"])
+        mgr.record_sent_state("light.kitchen", {
+            "brightness_pct": 100,  # 255
+            "color_temp_kelvin": 4000,
+            "transition": 0.0,
+        })
+        # Light was OFF and turned ON directly to 60 brightness with dimmer
+        event = MagicMock()
+        event.data = {
+            "entity_id": "light.kitchen",
+            "old_state": MagicMock(state="off"),
+            "new_state": MagicMock(state="on", attributes={"brightness": 60, "color_temp_kelvin": 4000}),
+        }
+        mgr._handle_light_change(event)
+        self.assertTrue(mgr.is_overridden("light.kitchen"))
+
 
 if __name__ == "__main__":
     unittest.main()

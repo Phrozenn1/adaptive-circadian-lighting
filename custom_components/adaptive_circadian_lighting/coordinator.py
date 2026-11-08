@@ -267,6 +267,7 @@ class AdaptiveCoordinator:
             on_manual_change_callback=self._on_manual_change,
             on_lights_off_callback=self._handle_light_turned_off,
             on_lights_on_callback=self._handle_light_turned_on,
+            get_expected_state_callback=self._get_expected_state,
         )
 
         anti_glare_on = config.get(CONF_ANTI_GLARE, True)
@@ -441,6 +442,16 @@ class AdaptiveCoordinator:
         payload["entity_id"] = entity_id
         self.override_mgr.record_sent_state(entity_id, payload)
         return payload
+
+    def _get_expected_state(self, entity_id: str) -> Dict[str, Any]:
+        """Return expected circadian target state for an entity."""
+        b = self.target_brightness if (self.target_brightness is not None and self.target_brightness > 0) else 100
+        return {
+            "brightness": round(b * 255 / 100),
+            "brightness_pct": b,
+            "color_temp_kelvin": self.target_kelvin,
+            "rgb_color": list(self.target_rgb) if self.target_rgb else None,
+        }
 
     async def _async_periodic_update(self, _now: Any = None) -> None:
         """Periodic loop to adapt lights."""
