@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional
 
 from homeassistant.components.light import ATTR_MAX_COLOR_TEMP_KELVIN, ATTR_MIN_COLOR_TEMP_KELVIN, ATTR_SUPPORTED_COLOR_MODES, DOMAIN as LIGHT_DOMAIN
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.event import async_track_time_interval
 
 from .anti_glare import AntiGlareInterceptor
@@ -335,6 +335,7 @@ class AdaptiveCoordinator:
                 return None
         return None
 
+    @callback
     def _handle_sleep_entity_change(self, event: Any) -> None:
         """Handle state change of external sleep entity."""
         new_state = event.data.get("new_state")
@@ -443,6 +444,10 @@ class AdaptiveCoordinator:
         self._calculate_target_values()
         self._notify_listeners()
 
+        # Check continuous presence for mmWave sensors if lights are currently off
+        if self.presence_mgr:
+            self.presence_mgr.check_continuous_presence()
+
         # Update lights that are ON and NOT manually overridden
         for light_id in self.lights:
             if self.override_mgr.is_overridden(light_id):
@@ -467,12 +472,18 @@ class AdaptiveCoordinator:
         allow_turn_on: bool = False,
     ) -> None:
         """Send adapted brightness and color to a single light."""
+        if allow_turn_on:
+            self.override_mgr.reset_override(light_id, notify_callback=False)
+        elif self.override_mgr.is_overridden(light_id):
+            return
+
         st = self.hass.states.get(light_id)
         if not st:
             if allow_turn_on:
+                b = self.target_brightness if (self.target_brightness is not None and self.target_brightness > 0) else 100
                 payload = {
                     "entity_id": light_id,
-                    "brightness_pct": self.target_brightness,
+                    "brightness_pct": b,
                 }
                 self.override_mgr.record_sent_state(light_id, payload)
                 await self.hass.services.async_call(
@@ -494,11 +505,13 @@ class AdaptiveCoordinator:
             else None
         )
 
+        target_b = self.target_brightness if (self.target_brightness is not None and self.target_brightness > 0) else 100
+
         payload = prepare_light_service_data(
             modes,
             min_k,
             max_k,
-            self.target_brightness,
+            target_b,
             self.target_kelvin,
             mode_pref=self.color_mode,
             rgb_override=rgb_override,
@@ -508,9 +521,20 @@ class AdaptiveCoordinator:
         # Filter out brightness or color if their respective adapt switches are off
         if not self.adapt_brightness_enabled:
             payload.pop("brightness_pct", None)
+            payload.pop("brightness", None)
         if not self.adapt_color_enabled:
             payload.pop("color_temp_kelvin", None)
             payload.pop("rgb_color", None)
+
+        # If allow_turn_on is True (or light is currently off), ensure valid brightness_pct
+        if (allow_turn_on or st.state != "on"):
+            if "brightness_pct" not in payload and "brightness" not in payload:
+                payload["brightness_pct"] = target_b
+            elif payload.get("brightness_pct") == 0:
+                payload["brightness_pct"] = target_b
+            elif payload.get("brightness") == 0:
+                payload.pop("brightness", None)
+                payload["brightness_pct"] = target_b
 
         payload["entity_id"] = light_id
 
@@ -588,40 +612,48 @@ class AdaptiveCoordinator:
     async def _on_presence_restore_manual(self, saved_states: Dict[str, Dict[str, Any]]) -> None:
         """Restore manual adjustments when reoccupied within grace period."""
         self._calculate_target_values()
-        for light_id in self.lights:
-            if light_id in saved_states:
-                attrs = saved_states[light_id]
-                st = self.hass.states.get(light_id)
-                raw_modes = st.attributes.get(ATTR_SUPPORTED_COLOR_MODES) if (st and getattr(st, "attributes", None)) else None
-                modes_set = set(raw_modes) if (raw_modes is not None and isinstance(raw_modes, (list, tuple, set))) else set()
-                is_dimmable_only = bool(modes_set) and (modes_set <= {"brightness", "onoff"})
-                supports_kelvin = ("color_temp" in modes_set or "color_temp_kelvin" in modes_set) if modes_set else True
-                supports_rgb = bool({"rgb", "rgbw", "rgbww", "xy", "hs"} & modes_set) if modes_set else True
+        try:
+            for light_id in self.lights:
+                self.override_mgr.reset_override(light_id, notify_callback=False)
+                if light_id in saved_states:
+                    attrs = saved_states[light_id]
+                    st = self.hass.states.get(light_id)
+                    raw_modes = st.attributes.get(ATTR_SUPPORTED_COLOR_MODES) if (st and getattr(st, "attributes", None)) else None
+                    modes_set = set(raw_modes) if (raw_modes is not None and isinstance(raw_modes, (list, tuple, set))) else set()
+                    is_dimmable_only = bool(modes_set) and (modes_set <= {"brightness", "onoff"})
+                    supports_kelvin = ("color_temp" in modes_set or "color_temp_kelvin" in modes_set) if modes_set else True
+                    supports_rgb = bool({"rgb", "rgbw", "rgbww", "xy", "hs"} & modes_set) if modes_set else True
 
-                payload: Dict[str, Any] = {"entity_id": light_id, "transition": 1.0}
-                b = attrs.get("brightness")
-                if b is not None and b > 0:
-                    payload["brightness"] = b
+                    payload: Dict[str, Any] = {"entity_id": light_id, "transition": 1.0}
+                    b = attrs.get("brightness")
+                    if b is not None and b > 0:
+                        payload["brightness"] = b
+                    else:
+                        payload["brightness_pct"] = self.target_brightness if (self.target_brightness is not None and self.target_brightness > 0) else 100
+
+                    if not is_dimmable_only:
+                        if attrs.get("color_temp_kelvin") is not None and supports_kelvin:
+                            payload["color_temp_kelvin"] = attrs["color_temp_kelvin"]
+                        elif attrs.get("rgb_color") is not None and supports_rgb:
+                            payload["rgb_color"] = attrs["rgb_color"]
+                        elif supports_kelvin:
+                            payload["color_temp_kelvin"] = self.target_kelvin
+                        elif supports_rgb:
+                            payload["rgb_color"] = list(kelvin_to_rgb(self.target_kelvin))
+
+                    self.override_mgr.record_sent_state(light_id, payload)
+                    self.override_mgr.set_manual_override(light_id, attrs)
+                    await self.hass.services.async_call(LIGHT_DOMAIN, "turn_on", payload, blocking=False)
                 else:
-                    payload["brightness_pct"] = self.target_brightness
-
-                if not is_dimmable_only:
-                    if attrs.get("color_temp_kelvin") is not None and supports_kelvin:
-                        payload["color_temp_kelvin"] = attrs["color_temp_kelvin"]
-                    elif attrs.get("rgb_color") is not None and supports_rgb:
-                        payload["rgb_color"] = attrs["rgb_color"]
-                    elif supports_kelvin:
-                        payload["color_temp_kelvin"] = self.target_kelvin
-                    elif supports_rgb:
-                        payload["rgb_color"] = list(kelvin_to_rgb(self.target_kelvin))
-
-                self.override_mgr.record_sent_state(light_id, payload)
-                self.override_mgr.set_manual_override(light_id, attrs)
-                await self.hass.services.async_call(LIGHT_DOMAIN, "turn_on", payload, blocking=False)
-            else:
-                await self._async_apply_to_light(light_id, custom_transition=1.0, allow_turn_on=True)
-            self._already_adapted_lights.add(light_id)
-        self._notify_listeners()
+                    await self._async_apply_to_light(light_id, custom_transition=1.0, allow_turn_on=True)
+                self._already_adapted_lights.add(light_id)
+            self._notify_listeners()
+        except Exception as err:
+            _LOGGER.error(
+                "AdaptiveCoordinator: error in _on_presence_restore_manual: %s. Falling back to adaptive turn on.",
+                err,
+            )
+            await self._on_presence_turn_on_adaptive()
 
     async def _on_presence_turn_on_adaptive(self) -> None:
         """Turn on lights with fresh adaptive settings when room reoccupied."""
@@ -643,5 +675,9 @@ class AdaptiveCoordinator:
         """Re-apply adaptive settings when override expires (only if light is currently ON)."""
         st = self.hass.states.get(entity_id)
         if st and st.state == "on":
-            self.hass.async_create_task(self._async_apply_to_light(entity_id))
+            coro = self._async_apply_to_light(entity_id)
+            try:
+                self.hass.async_create_task(coro)
+            except RuntimeError:
+                asyncio.run_coroutine_threadsafe(coro, self.hass.loop)
         self._notify_listeners()

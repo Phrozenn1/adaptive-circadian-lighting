@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 import logging
 from typing import Any, Callable, Dict, List, Optional
 
-from homeassistant.core import CALLBACK_TYPE, Event, HomeAssistant
+from homeassistant.core import CALLBACK_TYPE, Event, HomeAssistant, callback
 from homeassistant.helpers.event import async_track_state_change_event
 
 from .const import (
@@ -222,6 +222,18 @@ class PresenceManager:
             except Exception as err:
                 _LOGGER.error("PresenceManager: error tracking sensor %s: %s", sensor_id, err)
 
+        # Register periodic check for continuous presence (e.g. mmWave Aqara FP1/FP2)
+        try:
+            from homeassistant.helpers.event import async_track_time_interval
+            from datetime import timedelta
+            unsub_interval = async_track_time_interval(
+                self.hass, self.check_continuous_presence, timedelta(seconds=15)
+            )
+            if callable(unsub_interval):
+                self._unsub_trackers.append(unsub_interval)
+        except Exception as err:
+            _LOGGER.error("PresenceManager: error setting up periodic presence check: %s", err)
+
         # Evaluate initial state
         self._check_initial_sensor_state()
 
@@ -382,6 +394,23 @@ class PresenceManager:
                         pass
         return None
 
+    @callback
+    def check_continuous_presence(self, _now: Optional[datetime] = None) -> None:
+        """Periodic check for mmWave / continuous presence sensors.
+
+        If sensor is triggered and lights are currently off, trigger reoccupancy.
+        """
+        if not self.auto_turn_on:
+            return
+        if self.are_lights_off() and self.is_occupied():
+            _LOGGER.debug(
+                "PresenceManager: continuous presence detected while lights are off. Triggering reoccupancy."
+            )
+            now = datetime.now(timezone.utc)
+            self.last_motion_time = now
+            self._cancel_timers()
+            self._handle_reoccupancy(now)
+
     def _check_initial_sensor_state(self) -> None:
         """Check current sensor state at startup."""
         if self.is_occupied():
@@ -395,6 +424,7 @@ class PresenceManager:
             self.last_turned_off_time = datetime.now(timezone.utc)
             self._cancel_timers()
 
+    @callback
     def _handle_motion_event(self, event: Event) -> None:
         """Handle state change from an Aqara or standard motion/presence sensor."""
         if hasattr(event, "data"):
@@ -423,10 +453,10 @@ class PresenceManager:
             self._cancel_timers()
             self.last_motion_time = now
             lights_off = self.are_lights_off()
-            was_empty = (self.room_state in (STATE_DIMMED, STATE_OFF)) or lights_off
+            was_empty = self.room_state in (STATE_DIMMED, STATE_OFF)
             self._set_room_state(STATE_OCCUPIED)
 
-            if was_empty or (lights_off and self.auto_turn_on):
+            if lights_off or was_empty:
                 self._handle_reoccupancy(now)
         else:
             # When sensor turns off, check if all sensors are now clear
@@ -478,7 +508,7 @@ class PresenceManager:
                 )
                 return
 
-        # Validate saved manual states: ensure valid brightness > 0 or valid color
+        # Validate saved manual states: ensure valid brightness > 0
         has_valid_manual = False
         if within_grace and self.has_manual_state():
             for ent_id, st in self.saved_manual_states.items():
@@ -486,17 +516,17 @@ class PresenceManager:
                 if b is not None and b > 0:
                     has_valid_manual = True
                     break
-                elif st.get("color_temp_kelvin") is not None or st.get("rgb_color") is not None:
-                    has_valid_manual = True
-                    break
 
-        if within_grace and has_valid_manual:
+        restored = False
+        if within_grace and has_valid_manual and self.on_restore_manual_callback:
             _LOGGER.info(
                 "PresenceManager: room reoccupied within grace period. Restoring manual kitchen/room settings!"
             )
-            if self.on_restore_manual_callback:
-                self._dispatch_callback(self.on_restore_manual_callback, self.saved_manual_states)
-        elif self.auto_turn_on:
+            restored = self._dispatch_callback(
+                self.on_restore_manual_callback, self.saved_manual_states
+            )
+
+        if not restored and self.auto_turn_on:
             _LOGGER.info(
                 "PresenceManager: room reoccupied. Applying adaptive circadian lighting."
             )
@@ -577,11 +607,16 @@ class PresenceManager:
             self._off_timer_handle.cancel()
             self._off_timer_handle = None
 
-    def _dispatch_callback(self, func: Callable[..., Any], *args: Any) -> None:
-        """Safely invoke async or sync callback with exception handling."""
+    def _dispatch_callback(self, func: Callable[..., Any], *args: Any) -> bool:
+        """Safely invoke async or sync callback with exception handling. Returns True if succeeded."""
         try:
             res = func(*args)
             if asyncio.iscoroutine(res):
-                self.hass.async_create_task(res)
+                try:
+                    self.hass.async_create_task(res)
+                except RuntimeError:
+                    asyncio.run_coroutine_threadsafe(res, self.hass.loop)
+            return True
         except Exception as err:
             _LOGGER.error("PresenceManager: error executing callback %s: %s", func, err)
+            return False

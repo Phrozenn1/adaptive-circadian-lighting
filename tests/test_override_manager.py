@@ -214,6 +214,10 @@ class TestOverrideManager(unittest.TestCase):
         mgr._handle_light_change(event)
         self.assertFalse(mgr.is_overridden("light.living_room"))
 
+    def test_callback_decorator_present(self):
+        mgr = OverrideManager(self.hass, lights=["light.living_room"])
+        self.assertTrue(getattr(mgr._handle_light_change, "_hass_callback", False))
+
 
 if __name__ == "__main__":
     unittest.main()
