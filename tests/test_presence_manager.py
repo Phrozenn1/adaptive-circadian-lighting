@@ -136,6 +136,103 @@ class TestPresenceManager(unittest.TestCase):
         # Because DND is active during sleep, motion should NOT have turned on lights
         self.assertFalse(turn_on_called)
 
+    def test_initial_state_empty_sets_room_off(self):
+        self.hass.states.get.return_value = MockState("off")
+        pm = PresenceManager(self.hass, sensors=["binary_sensor.motion"])
+        pm._check_initial_sensor_state()
+        self.assertEqual(pm.room_state, STATE_OFF)
+        self.assertIsNotNone(pm.last_turned_off_time)
+        self.hass.loop.call_later.assert_not_called()
+
+    def test_motion_event_turns_on_lights(self):
+        turn_on_called = False
+        def turn_on_cb():
+            nonlocal turn_on_called
+            turn_on_called = True
+
+        pm = PresenceManager(
+            self.hass,
+            sensors=["binary_sensor.motion"],
+            auto_turn_on=True,
+            on_turn_on_adaptive_callback=turn_on_cb,
+        )
+        pm.room_state = STATE_OFF
+
+        event = MagicMock()
+        event.data = {
+            "entity_id": "binary_sensor.motion",
+            "new_state": MockState("on"),
+        }
+        pm._handle_motion_event(event)
+
+        self.assertTrue(turn_on_called)
+        self.assertEqual(pm.room_state, STATE_OCCUPIED)
+
+    def test_motion_turns_on_when_lights_off_callback_true(self):
+        turn_on_called = False
+        def turn_on_cb():
+            nonlocal turn_on_called
+            turn_on_called = True
+
+        pm = PresenceManager(
+            self.hass,
+            sensors=["binary_sensor.motion"],
+            auto_turn_on=True,
+            are_lights_off_callback=lambda: True,
+            on_turn_on_adaptive_callback=turn_on_cb,
+        )
+        # Even if room_state was temporarily occupied due to recent debounce
+        pm.room_state = STATE_OCCUPIED
+
+        event = MagicMock()
+        event.data = {
+            "entity_id": "binary_sensor.motion",
+            "new_state": MockState("on"),
+        }
+        pm._handle_motion_event(event)
+
+        self.assertTrue(turn_on_called)
+
+    def test_on_lights_turned_off_transitions_to_off(self):
+        pm = PresenceManager(self.hass, sensors=["binary_sensor.motion"])
+        pm.room_state = STATE_OCCUPIED
+        pm._dim_timer_handle = MagicMock()
+
+        pm.on_lights_turned_off()
+
+        self.assertEqual(pm.room_state, STATE_OFF)
+        self.assertIsNotNone(pm.last_turned_off_time)
+        self.assertIsNone(pm._dim_timer_handle)
+
+    def test_sensor_clears_when_lights_already_off_no_dim(self):
+        pm = PresenceManager(
+            self.hass,
+            sensors=["binary_sensor.motion"],
+            are_lights_off_callback=lambda: True,
+        )
+        pm.room_state = STATE_OFF
+        self.hass.states.get.return_value = MockState("off")
+
+        event = MagicMock()
+        event.data = {
+            "entity_id": "binary_sensor.motion",
+            "new_state": MockState("off"),
+        }
+        pm._handle_motion_event(event)
+
+        self.assertEqual(pm.room_state, STATE_OFF)
+        self.hass.loop.call_later.assert_not_called()
+
+    def test_lux_sensor_entity_threshold(self):
+        pm = PresenceManager(
+            self.hass,
+            sensors=["binary_sensor.motion"],
+            lux_sensor="sensor.kitchen_lux",
+            turn_on_lux_threshold=200,
+        )
+        self.hass.states.get.side_effect = lambda eid: MockState("350.0") if eid == "sensor.kitchen_lux" else MockState("off")
+        self.assertEqual(pm.get_ambient_lux(), 350.0)
+
 
 if __name__ == "__main__":
     unittest.main()

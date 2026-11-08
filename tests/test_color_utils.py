@@ -103,6 +103,16 @@ class TestColorUtils(unittest.TestCase):
         )
         self.assertEqual(payload["rgb_color"], [255, 50, 0])
 
+    def test_prepare_light_service_data_onoff_light(self):
+        payload = prepare_light_service_data(
+            supported_modes=["onoff"],
+            min_kelvin=None,
+            max_kelvin=None,
+            brightness_pct=80,
+            target_kelvin=4000,
+        )
+        self.assertEqual(payload, {})
+
 
 if __name__ == "__main__":
     unittest.main()

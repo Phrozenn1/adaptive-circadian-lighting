@@ -48,6 +48,8 @@ class PresenceManager:
         turn_on_lux_threshold: int = DEFAULT_TURN_ON_LUX_THRESHOLD,
         motion_debounce: int = DEFAULT_MOTION_DEBOUNCE,
         sleep_motion_behavior: str = DEFAULT_SLEEP_MOTION_BEHAVIOR,
+        lux_sensor: Optional[str] = None,
+        are_lights_off_callback: Optional[Callable[[], bool]] = None,
         is_sleep_callback: Optional[Callable[[], bool]] = None,
         on_dim_callback: Optional[Callable[[], Any]] = None,
         on_off_callback: Optional[Callable[[], Any]] = None,
@@ -55,7 +57,7 @@ class PresenceManager:
         on_turn_on_adaptive_callback: Optional[Callable[[], Any]] = None,
     ) -> None:
         self.hass = hass
-        self.sensors = sensors
+        self.sensors = [sensors] if isinstance(sensors, str) else list(sensors or [])
         self.dim_timeout = dim_timeout
         self.off_timeout = off_timeout
         self.grace_period = grace_period
@@ -64,6 +66,8 @@ class PresenceManager:
         self.turn_on_lux_threshold = turn_on_lux_threshold
         self.motion_debounce = motion_debounce
         self.sleep_motion_behavior = sleep_motion_behavior
+        self.lux_sensor = lux_sensor
+        self.are_lights_off_callback = are_lights_off_callback
         self.is_sleep_callback = is_sleep_callback
 
         self.on_dim_callback = on_dim_callback
@@ -71,7 +75,7 @@ class PresenceManager:
         self.on_restore_manual_callback = on_restore_manual_callback
         self.on_turn_on_adaptive_callback = on_turn_on_adaptive_callback
 
-        self.room_state: str = STATE_OCCUPIED
+        self.room_state: str = STATE_OFF
         self.last_motion_time: datetime = datetime.now(timezone.utc)
         self.last_turned_off_time: Optional[datetime] = None
 
@@ -155,8 +159,32 @@ class PresenceManager:
                 return True
         return False
 
+    def are_lights_off(self) -> bool:
+        """Check if target lights are currently off."""
+        if self.are_lights_off_callback:
+            try:
+                return bool(self.are_lights_off_callback())
+            except Exception as err:
+                _LOGGER.warning("PresenceManager: error checking if lights are off: %s", err)
+        return self.room_state == STATE_OFF
+
+    def on_lights_turned_off(self) -> None:
+        """Handle when all lights in the room are turned off."""
+        self._cancel_timers()
+        self.room_state = STATE_OFF
+        self.last_turned_off_time = datetime.now(timezone.utc)
+        _LOGGER.debug("PresenceManager: lights turned off; room state set to OFF.")
+
     def get_ambient_lux(self) -> Optional[float]:
-        """Extract ambient illuminance from Aqara or presence sensor attributes if available."""
+        """Extract ambient illuminance from dedicated lux sensor or Aqara presence sensor attributes."""
+        if self.lux_sensor:
+            st = self.hass.states.get(self.lux_sensor)
+            if st and st.state not in ("unavailable", "unknown"):
+                try:
+                    return float(st.state)
+                except (ValueError, TypeError):
+                    pass
+
         for sensor_id in self.sensors:
             st = self.hass.states.get(sensor_id)
             if not st or not getattr(st, "attributes", None):
@@ -177,9 +205,12 @@ class PresenceManager:
             self.room_state = STATE_OCCUPIED
             self.last_motion_time = datetime.now(timezone.utc)
             self._cancel_timers()
+            if self.auto_turn_on and self.are_lights_off():
+                self._handle_reoccupancy(datetime.now(timezone.utc))
         else:
-            self.room_state = STATE_OCCUPIED
-            self._schedule_debounce_or_dim()
+            self.room_state = STATE_OFF
+            self.last_turned_off_time = datetime.now(timezone.utc)
+            self._cancel_timers()
 
     def _handle_motion_event(self, event: Event) -> None:
         """Handle state change from an Aqara or standard motion/presence sensor."""
@@ -200,7 +231,8 @@ class PresenceManager:
         if is_on:
             self._cancel_timers()
             self.last_motion_time = now
-            was_empty = self.room_state in (STATE_DIMMED, STATE_OFF)
+            lights_off = self.are_lights_off()
+            was_empty = (self.room_state in (STATE_DIMMED, STATE_OFF)) or lights_off
             self.room_state = STATE_OCCUPIED
 
             if was_empty:
@@ -208,11 +240,21 @@ class PresenceManager:
         else:
             # When sensor turns off, check if all sensors are now clear
             if not self.is_occupied():
-                self._schedule_debounce_or_dim()
+                if not self.are_lights_off():
+                    self._schedule_debounce_or_dim()
+                else:
+                    self.room_state = STATE_OFF
+                    self._cancel_timers()
 
     def _handle_reoccupancy(self, now: datetime) -> None:
         """Handle person returning to the room."""
         self.room_state = STATE_OCCUPIED
+
+        if not self.auto_turn_on:
+            _LOGGER.debug(
+                "PresenceManager: motion detected but auto_turn_on is disabled. Skipping turn-on."
+            )
+            return
 
         # Check if room is in Sleep Mode and DND is active (ignore motion)
         if self.is_sleep_callback and self.is_sleep_callback():
