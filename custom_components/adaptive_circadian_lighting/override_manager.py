@@ -219,8 +219,8 @@ class OverrideManager:
             expected_b = last_sent.get("brightness")
             actual_b = new_attrs.get("brightness")
             if expected_b is not None and actual_b is not None:
-                # 8 units out of 255 is ~3% tolerance for dimmer rounding/quantization
-                if abs(actual_b - expected_b) > 8:
+                # 15 units out of 255 (~6%) accommodates Zigbee 254-max caps and dimmer rounding
+                if abs(actual_b - expected_b) > 15:
                     matches_sent = False
 
             # Color temperature check (handling Kelvin vs Mireds conversion rounding)
@@ -229,27 +229,30 @@ class OverrideManager:
             actual_k = new_attrs.get("color_temp_kelvin")
             actual_m = new_attrs.get("color_temp")
             if expected_k is not None:
-                ct_ok = False
-                if actual_k is not None:
-                    # Zigbee mired rounding error at high Kelvin can be up to 60K
-                    if abs(actual_k - expected_k) <= 60:
-                        ct_ok = True
-                    elif expected_m and actual_k > 0:
-                        act_m = round(1000000 / actual_k)
-                        if abs(act_m - expected_m) <= 4:
+                # If neither Kelvin nor Mireds is reported by this state update (e.g. partial packet or dimmable bulb),
+                # do not fail matches_sent!
+                if actual_k is not None or actual_m is not None:
+                    ct_ok = False
+                    if actual_k is not None:
+                        # Zigbee mired rounding error at high Kelvin can be up to 100K
+                        if abs(actual_k - expected_k) <= 100:
                             ct_ok = True
-                elif actual_m is not None and expected_m is not None:
-                    if abs(actual_m - expected_m) <= 4:
-                        ct_ok = True
-                if not ct_ok:
-                    matches_sent = False
+                        elif expected_m and actual_k > 0:
+                            act_m = round(1000000 / actual_k)
+                            if abs(act_m - expected_m) <= 8:
+                                ct_ok = True
+                    elif actual_m is not None and expected_m is not None:
+                        if abs(actual_m - expected_m) <= 8:
+                            ct_ok = True
+                    if not ct_ok:
+                        matches_sent = False
 
             # RGB color check
             expected_rgb = last_sent.get("rgb_color")
             actual_rgb = new_attrs.get("rgb_color")
             if expected_rgb is not None and actual_rgb is not None:
                 if not (len(actual_rgb) >= 3 and len(expected_rgb) >= 3 and
-                        all(abs(a - b) <= 15 for a, b in zip(actual_rgb[:3], expected_rgb[:3]))):
+                        all(abs(a - b) <= 25 for a, b in zip(actual_rgb[:3], expected_rgb[:3]))):
                     matches_sent = False
 
             if matches_sent:
@@ -259,28 +262,46 @@ class OverrideManager:
         # 3. Detect actual manual changes
         new_b = new_attrs.get("brightness")
         old_b = old_attrs.get("brightness")
+        expected_b = last_sent.get("brightness") if last_sent else None
+        b_matches_expected = expected_b is not None and new_b is not None and abs(new_b - expected_b) <= 15
         b_changed = (
             new_b is not None
             and old_b is not None
             and abs(new_b - old_b) > 8
+            and not b_matches_expected
         )
 
         new_k = new_attrs.get("color_temp_kelvin")
         old_k = old_attrs.get("color_temp_kelvin")
+        expected_k = last_sent.get("color_temp_kelvin") if last_sent else None
+        k_matches_expected = expected_k is not None and new_k is not None and abs(new_k - expected_k) <= 100
+
         new_m = new_attrs.get("color_temp")
         old_m = old_attrs.get("color_temp")
+        expected_m = last_sent.get("color_temp") if last_sent else None
+        m_matches_expected = expected_m is not None and new_m is not None and abs(new_m - expected_m) <= 8
+
         ct_changed = False
         if new_k is not None and old_k is not None:
-            ct_changed = abs(new_k - old_k) > 60
+            ct_changed = abs(new_k - old_k) > 60 and not k_matches_expected
         elif new_m is not None and old_m is not None:
-            ct_changed = abs(new_m - old_m) > 4
+            ct_changed = abs(new_m - old_m) > 4 and not m_matches_expected
 
         new_rgb = new_attrs.get("rgb_color")
         old_rgb = old_attrs.get("rgb_color")
+        expected_rgb = last_sent.get("rgb_color") if last_sent else None
+        rgb_matches_expected = (
+            expected_rgb is not None
+            and new_rgb is not None
+            and len(new_rgb) >= 3
+            and len(expected_rgb) >= 3
+            and all(abs(a - b) <= 25 for a, b in zip(new_rgb[:3], expected_rgb[:3]))
+        )
         rgb_changed = (
             new_rgb is not None
             and old_rgb is not None
             and new_rgb != old_rgb
+            and not rgb_matches_expected
         )
 
         if b_changed or ct_changed or rgb_changed:

@@ -545,6 +545,103 @@ class TestPresenceManager(unittest.TestCase):
         restore_cb.assert_called_once()
         turn_on_adaptive_cb.assert_called_once()
 
+    def test_sensor_fusion_motion_and_presence_sensors(self):
+        turn_on_cb = MagicMock()
+        pm = PresenceManager(
+            self.hass,
+            motion_sensors=["binary_sensor.ikea_vallhorn"],
+            presence_sensors=["binary_sensor.aqara_fp2"],
+            auto_turn_on=True,
+            on_turn_on_adaptive_callback=turn_on_cb,
+            are_lights_off_callback=lambda: pm.room_state == STATE_OFF,
+        )
+        pm.room_state = STATE_OFF
+
+        # 1. Motion sensor detects fast movement (PIR trigger)
+        event_motion_on = MagicMock()
+        event_motion_on.data = {
+            "entity_id": "binary_sensor.ikea_vallhorn",
+            "new_state": MockState("on"),
+        }
+        pm._handle_motion_event(event_motion_on)
+
+        self.assertEqual(pm.room_state, STATE_OCCUPIED)
+        turn_on_cb.assert_called_once()
+        self.assertIsNone(pm._debounce_timer_handle)
+
+        # 2. Motion sensor clears (PIR goes off after 30s)
+        # But mmWave sensor reports occupancy
+        def get_state(entity_id):
+            if entity_id == "binary_sensor.ikea_vallhorn":
+                return MockState("off")
+            if entity_id == "binary_sensor.aqara_fp2":
+                return MockState("on")
+            return None
+        self.hass.states.get.side_effect = get_state
+
+        event_motion_off = MagicMock()
+        event_motion_off.data = {
+            "entity_id": "binary_sensor.ikea_vallhorn",
+            "new_state": MockState("off"),
+        }
+        pm._handle_motion_event(event_motion_off)
+
+        # Crucial: room must STAY occupied because mmWave radar sees the person!
+        self.assertEqual(pm.room_state, STATE_OCCUPIED)
+        self.assertIsNone(pm._debounce_timer_handle)
+
+        # 3. mmWave sensor also clears (person left kitchen)
+        self.hass.states.get.side_effect = lambda eid: MockState("off")
+        event_presence_off = MagicMock()
+        event_presence_off.data = {
+            "entity_id": "binary_sensor.aqara_fp2",
+            "new_state": MockState("off"),
+        }
+        pm._handle_presence_event(event_presence_off)
+
+        # Now debounce / dim timer MUST be scheduled!
+        self.hass.loop.call_later.assert_called()
+
+    def test_continuous_presence_watchdog_respects_manual_cooldown(self):
+        turn_on_cb = MagicMock()
+        pm = PresenceManager(
+            self.hass,
+            presence_sensors=["binary_sensor.kitchen_fp2"],
+            auto_turn_on=True,
+            on_turn_on_adaptive_callback=turn_on_cb,
+            are_lights_off_callback=lambda: True,
+        )
+        self.hass.states.get.return_value = MockState("on")
+
+        # User turned off lights 5 seconds ago
+        pm.last_turned_off_time = datetime.now(timezone.utc) - timedelta(seconds=5)
+        pm.check_continuous_presence()
+
+        # Cooldown is 15 seconds, so lights must NOT turn on yet
+        turn_on_cb.assert_not_called()
+
+        # After 16 seconds, watchdog must trigger turn-on
+        pm.last_turned_off_time = datetime.now(timezone.utc) - timedelta(seconds=16)
+        pm.check_continuous_presence()
+        turn_on_cb.assert_called_once()
+
+    def test_continuous_presence_restores_dimmed_room(self):
+        turn_on_cb = MagicMock()
+        pm = PresenceManager(
+            self.hass,
+            presence_sensors=["binary_sensor.kitchen_fp2"],
+            auto_turn_on=True,
+            on_turn_on_adaptive_callback=turn_on_cb,
+            are_lights_off_callback=lambda: False,
+        )
+        self.hass.states.get.return_value = MockState("on")
+        pm.room_state = STATE_DIMMED
+
+        pm.check_continuous_presence()
+
+        self.assertEqual(pm.room_state, STATE_OCCUPIED)
+        turn_on_cb.assert_called_once()
+
 
 if __name__ == "__main__":
     unittest.main()

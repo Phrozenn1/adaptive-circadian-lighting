@@ -59,6 +59,10 @@ class TestBinarySensor(unittest.IsolatedAsyncioTestCase):
         pm.room_state = STATE_OFF
         pm.is_occupied.return_value = False
         pm.sensors = ["binary_sensor.kitchen_motion"]
+        pm.motion_sensors = ["binary_sensor.kitchen_motion"]
+        pm.presence_sensors = []
+        pm.is_motion_triggered.return_value = False
+        pm.is_presence_triggered.return_value = False
         pm.last_motion_time = datetime(2026, 11, 8, 8, 30, 0, tzinfo=timezone.utc)
         pm.last_turned_off_time = None
         self.coordinator.presence_mgr = pm
@@ -85,6 +89,10 @@ class TestBinarySensor(unittest.IsolatedAsyncioTestCase):
         attrs = sensor.extra_state_attributes
         self.assertEqual(attrs["room_state"], STATE_DIMMED)
         self.assertEqual(attrs["sensors"], ["binary_sensor.kitchen_motion"])
+        self.assertEqual(attrs["motion_sensors"], ["binary_sensor.kitchen_motion"])
+        self.assertEqual(attrs["presence_sensors"], [])
+        self.assertFalse(attrs["motion_detected"])
+        self.assertFalse(attrs["presence_detected"])
         self.assertIn("2026-11-08", attrs["last_motion"])
 
     async def test_occupancy_binary_sensor_registration(self):

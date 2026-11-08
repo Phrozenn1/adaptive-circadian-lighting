@@ -42,6 +42,7 @@ from .const import (
     CONF_MIN_SUNRISE_TIME,
     CONF_MIN_SUNSET_TIME,
     CONF_MOTION_DEBOUNCE,
+    CONF_MOTION_SENSORS,
     CONF_NAME,
     CONF_OFF_TIMEOUT,
     CONF_OVERRIDE_TIMEOUT,
@@ -203,14 +204,19 @@ class AdaptiveCoordinator:
         self.curve_calc = CurveCalculator(config.get(CONF_CURVE_POINTS))
 
         presence_enabled = config.get(CONF_PRESENCE_ENABLE, False)
+        motion_sensors_raw = config.get(CONF_MOTION_SENSORS, [])
+        motion_sensors: List[str] = _normalize_entity_list(motion_sensors_raw)
         presence_sensors_raw = config.get(CONF_PRESENCE_SENSORS, [])
         presence_sensors: List[str] = _normalize_entity_list(presence_sensors_raw)
+        self.motion_sensors: List[str] = motion_sensors
         self.presence_sensors: List[str] = presence_sensors
         self.presence_mgr: Optional[PresenceManager] = None
-        if (presence_enabled or bool(presence_sensors)) and presence_sensors:
+        has_any_sensors = bool(motion_sensors or presence_sensors)
+        if (presence_enabled or has_any_sensors) and has_any_sensors:
             self.presence_mgr = PresenceManager(
                 hass,
-                sensors=presence_sensors,
+                motion_sensors=motion_sensors,
+                presence_sensors=presence_sensors,
                 dim_timeout=config.get(CONF_DIM_TIMEOUT, DEFAULT_DIM_TIMEOUT),
                 off_timeout=config.get(CONF_OFF_TIMEOUT, DEFAULT_OFF_TIMEOUT),
                 grace_period=config.get(CONF_GRACE_PERIOD, DEFAULT_GRACE_PERIOD),

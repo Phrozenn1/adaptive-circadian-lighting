@@ -55,6 +55,7 @@ CONF_PRIORITIZE_LUX = "prioritize_lux"
 
 # Presence & Motion Settings
 CONF_PRESENCE_ENABLE = "presence_enable"
+CONF_MOTION_SENSORS = "motion_sensors"
 CONF_PRESENCE_SENSORS = "presence_sensors"
 CONF_AUTO_TURN_ON = "auto_turn_on"
 CONF_TURN_ON_LUX_THRESHOLD = "turn_on_lux_threshold"
