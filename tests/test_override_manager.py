@@ -103,6 +103,92 @@ class TestOverrideManager(unittest.TestCase):
 
         self.assertEqual(on_entity_called, "light.kitchen")
 
+    def test_no_false_override_during_transition_window(self):
+        mgr = OverrideManager(self.hass, lights=["light.living_room"])
+        # Coordinator commanded a 5-second transition to 70% brightness (179)
+        mgr.record_sent_state("light.living_room", {
+            "brightness_pct": 70,
+            "color_temp_kelvin": 3000,
+            "transition": 5.0,
+        })
+
+        # Halfway through the transition (2 seconds later), light reports ramp state
+        event = MagicMock()
+        event.data = {
+            "entity_id": "light.living_room",
+            "old_state": MagicMock(state="on", attributes={"brightness": 100, "color_temp_kelvin": 2700}),
+            "new_state": MagicMock(state="on", attributes={"brightness": 140, "color_temp_kelvin": 2850}),
+        }
+        mgr._handle_light_change(event)
+
+        self.assertFalse(mgr.is_overridden("light.living_room"))
+
+    def test_no_false_override_on_brightness_pct_scaling(self):
+        mgr = OverrideManager(self.hass, lights=["light.living_room"])
+        # Coordinator sent brightness_pct: 50 -> 128 (in 0-255 scale)
+        mgr.record_sent_state("light.living_room", {
+            "brightness_pct": 50,
+            "color_temp_kelvin": 3500,
+            "transition": 0.0,
+        })
+        # Simulate elapsed time beyond transition window
+        from datetime import datetime, timezone, timedelta
+        mgr._last_sent_states["light.living_room"]["timestamp"] = datetime.now(timezone.utc) - timedelta(seconds=10)
+
+        # Light reports 127 in 0-255 scale (due to integer rounding in Zigbee bulb)
+        event = MagicMock()
+        event.data = {
+            "entity_id": "light.living_room",
+            "old_state": MagicMock(state="on", attributes={"brightness": 255, "color_temp_kelvin": 3500}),
+            "new_state": MagicMock(state="on", attributes={"brightness": 127, "color_temp_kelvin": 3500}),
+        }
+        mgr._handle_light_change(event)
+
+        self.assertFalse(mgr.is_overridden("light.living_room"))
+
+    def test_no_false_override_on_kelvin_mireds_rounding(self):
+        mgr = OverrideManager(self.hass, lights=["light.living_room"])
+        # Coordinator commanded 3000K (which is 333.33 mireds)
+        mgr.record_sent_state("light.living_room", {
+            "brightness_pct": 80,
+            "color_temp_kelvin": 3000,
+            "transition": 0.0,
+        })
+        from datetime import datetime, timezone, timedelta
+        mgr._last_sent_states["light.living_room"]["timestamp"] = datetime.now(timezone.utc) - timedelta(seconds=10)
+
+        # Light reports 3003K because Zigbee hardware stored 333 mireds (1000000 / 333 = 3003)
+        event = MagicMock()
+        event.data = {
+            "entity_id": "light.living_room",
+            "old_state": MagicMock(state="on", attributes={"brightness": 204, "color_temp_kelvin": 4000}),
+            "new_state": MagicMock(state="on", attributes={"brightness": 204, "color_temp_kelvin": 3003}),
+        }
+        mgr._handle_light_change(event)
+
+        self.assertFalse(mgr.is_overridden("light.living_room"))
+
+    def test_real_manual_change_triggers_override(self):
+        mgr = OverrideManager(self.hass, lights=["light.living_room"])
+        mgr.record_sent_state("light.living_room", {
+            "brightness_pct": 50,
+            "color_temp_kelvin": 3000,
+            "transition": 0.0,
+        })
+        from datetime import datetime, timezone, timedelta
+        mgr._last_sent_states["light.living_room"]["timestamp"] = datetime.now(timezone.utc) - timedelta(seconds=10)
+
+        # User drags dimmer slider to 100% (255) and 5500K
+        event = MagicMock()
+        event.data = {
+            "entity_id": "light.living_room",
+            "old_state": MagicMock(state="on", attributes={"brightness": 128, "color_temp_kelvin": 3000}),
+            "new_state": MagicMock(state="on", attributes={"brightness": 255, "color_temp_kelvin": 5500}),
+        }
+        mgr._handle_light_change(event)
+
+        self.assertTrue(mgr.is_overridden("light.living_room"))
+
 
 if __name__ == "__main__":
     unittest.main()

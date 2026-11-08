@@ -138,6 +138,51 @@ class TestCoordinatorPresence(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(coord.presence_mgr.room_state, "occupied")
         listener.assert_called_once()
 
+    async def test_presence_restore_manual_ensures_nonzero_brightness(self):
+        entry = DummyConfigEntry(data={
+            CONF_LIGHTS: ["light.living_room"],
+            CONF_PRESENCE_ENABLE: True,
+            CONF_PRESENCE_SENSORS: ["binary_sensor.kitchen_motion"],
+        })
+        coord = AdaptiveCoordinator(self.hass, entry)
+        coord._calculate_target_values = MagicMock()
+        coord.target_brightness = 75
+        coord.target_kelvin = 3000
+
+        # Saved state has brightness=0 or None (from light turn-off event)
+        saved_states = {
+            "light.living_room": {
+                "brightness": 0,
+                "color_temp_kelvin": 3000,
+            }
+        }
+        await coord._on_presence_restore_manual(saved_states)
+
+        # Service call must have turned on with fallback target brightness (75%)
+        self.hass.services.async_call.assert_called_once_with(
+            LIGHT_DOMAIN,
+            "turn_on",
+            {
+                "entity_id": "light.living_room",
+                "transition": 1.0,
+                "brightness_pct": 75,
+                "color_temp_kelvin": 3000,
+            },
+            blocking=False,
+        )
+
+    async def test_async_setup_starts_presence_tracking(self):
+        entry = DummyConfigEntry(data={
+            CONF_LIGHTS: ["light.living_room"],
+            CONF_PRESENCE_ENABLE: True,
+            CONF_PRESENCE_SENSORS: ["binary_sensor.kitchen_motion", "binary_sensor.ikea_motion"],
+        })
+        coord = AdaptiveCoordinator(self.hass, entry)
+        coord.presence_mgr = MagicMock()
+
+        await coord.async_setup()
+        coord.presence_mgr.start_tracking.assert_called_once()
+
 
 if __name__ == "__main__":
     unittest.main()
