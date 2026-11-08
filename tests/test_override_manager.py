@@ -329,22 +329,92 @@ class TestOverrideManager(unittest.TestCase):
         mgr._handle_light_change(event)
         self.assertTrue(mgr.is_overridden("light.kitchen"))
 
-    def test_light_turned_on_with_manual_brightness_triggers_override(self):
+    def test_light_turned_on_from_off_does_not_trigger_override(self):
         mgr = OverrideManager(self.hass, lights=["light.kitchen"])
         mgr.record_sent_state("light.kitchen", {
             "brightness_pct": 100,  # 255
             "color_temp_kelvin": 4000,
             "transition": 0.0,
         })
-        # Light was OFF and turned ON directly to 60 brightness with dimmer
+        # Light was OFF and turned ON (e.g. motion sensor or wall toggle)
+        # It must NOT be marked as an override so coordinator can adapt it smoothly!
         event = MagicMock()
         event.data = {
             "entity_id": "light.kitchen",
             "old_state": MagicMock(state="off"),
-            "new_state": MagicMock(state="on", attributes={"brightness": 60, "color_temp_kelvin": 4000}),
+            "new_state": MagicMock(state="on", attributes={"brightness": 60, "color_temp_kelvin": 2700}),
         }
         mgr._handle_light_change(event)
-        self.assertTrue(mgr.is_overridden("light.kitchen"))
+        self.assertFalse(mgr.is_overridden("light.kitchen"))
+
+    def test_heartbeat_or_ping_does_not_trigger_override(self):
+        # When a Zigbee bulb reports a state heartbeat where no lighting attributes changed
+        mgr = OverrideManager(self.hass, lights=["light.kitchen"])
+        mgr.record_sent_state("light.kitchen", {
+            "brightness_pct": 100,  # 255
+            "color_temp_kelvin": 4000,
+            "transition": 0.0,
+        })
+        from datetime import datetime, timezone, timedelta
+        mgr._last_sent_states["light.kitchen"]["timestamp"] = datetime.now(timezone.utc) - timedelta(seconds=30)
+
+        # Light is at 200, 3000K. State event arrives where brightness and color did NOT change
+        event = MagicMock()
+        event.data = {
+            "entity_id": "light.kitchen",
+            "old_state": MagicMock(state="on", attributes={"brightness": 200, "color_temp_kelvin": 3000}),
+            "new_state": MagicMock(state="on", attributes={"brightness": 200, "color_temp_kelvin": 3000}),
+        }
+        mgr._handle_light_change(event)
+        self.assertFalse(mgr.is_overridden("light.kitchen"))
+
+    def test_multipacket_zigbee_update_does_not_trigger_override(self):
+        # Coordinator sent brightness 200 and kelvin 4000
+        mgr = OverrideManager(self.hass, lights=["light.kitchen"])
+        mgr.record_sent_state("light.kitchen", {
+            "brightness": 200,
+            "color_temp_kelvin": 4000,
+            "transition": 0.0,
+        })
+
+        # Packet 1: brightness reached 200, but kelvin packet hasn't arrived yet (still 2700)
+        e1 = MagicMock()
+        e1.data = {
+            "entity_id": "light.kitchen",
+            "old_state": MagicMock(state="on", attributes={"brightness": 100, "color_temp_kelvin": 2700}),
+            "new_state": MagicMock(state="on", attributes={"brightness": 200, "color_temp_kelvin": 2700}),
+        }
+        mgr._handle_light_change(e1)
+        self.assertFalse(mgr.is_overridden("light.kitchen"))
+
+        # Packet 2: kelvin reached 4000, brightness is 200
+        e2 = MagicMock()
+        e2.data = {
+            "entity_id": "light.kitchen",
+            "old_state": MagicMock(state="on", attributes={"brightness": 200, "color_temp_kelvin": 2700}),
+            "new_state": MagicMock(state="on", attributes={"brightness": 200, "color_temp_kelvin": 4000}),
+        }
+        mgr._handle_light_change(e2)
+        self.assertFalse(mgr.is_overridden("light.kitchen"))
+
+    def test_dimmable_only_bulb_does_not_trigger_override(self):
+        # Dimmable bulb without color temp support
+        mgr = OverrideManager(self.hass, lights=["light.dimmable"])
+        mgr.record_sent_state("light.dimmable", {
+            "brightness": 180,
+            "color_temp_kelvin": None,
+            "transition": 0.0,
+        })
+
+        # State updates to 180 (no kelvin reported)
+        e = MagicMock()
+        e.data = {
+            "entity_id": "light.dimmable",
+            "old_state": MagicMock(state="on", attributes={"brightness": 100}),
+            "new_state": MagicMock(state="on", attributes={"brightness": 180}),
+        }
+        mgr._handle_light_change(e)
+        self.assertFalse(mgr.is_overridden("light.dimmable"))
 
 
 if __name__ == "__main__":

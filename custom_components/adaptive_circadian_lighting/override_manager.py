@@ -205,158 +205,138 @@ class OverrideManager:
                 self.on_lights_off_callback(entity_id)
             return
 
-        new_attrs = getattr(new_state, "attributes", {}) or {}
-        old_attrs = getattr(old_state, "attributes", {}) or {}
-        last_sent = self._last_sent_states.get(entity_id)
-
-        # Fallback expected values if last_sent is missing
-        expected_fallback = (
-            self.get_expected_state_callback(entity_id)
-            if self.get_expected_state_callback
-            else None
-        )
-
-        expected_b = (
-            last_sent.get("brightness")
-            if last_sent and last_sent.get("brightness") is not None
-            else (expected_fallback.get("brightness") if expected_fallback else None)
-        )
-        expected_k = (
-            last_sent.get("color_temp_kelvin")
-            if last_sent and last_sent.get("color_temp_kelvin") is not None
-            else (expected_fallback.get("color_temp_kelvin") if expected_fallback else None)
-        )
-        expected_m = last_sent.get("color_temp") if last_sent else None
-        expected_rgb = (
-            last_sent.get("rgb_color")
-            if last_sent and last_sent.get("rgb_color") is not None
-            else (expected_fallback.get("rgb_color") if expected_fallback else None)
-        )
-
-        actual_b = new_attrs.get("brightness")
-        actual_k = new_attrs.get("color_temp_kelvin")
-        actual_m = new_attrs.get("color_temp")
-        actual_rgb = new_attrs.get("rgb_color")
-
-        # If it was off and just turned on (or first seen), notify callback and check for explicit manual turn-on values
+        # If it was off and just turned on (or discovered during HA startup), let coordinator adapt it
         if old_state is None or old_state.state != "on":
             if self.on_lights_on_callback:
                 self.on_lights_on_callback(entity_id)
-            # If it was turned on with a specific manual brightness that differs from circadian target
-            if expected_b is not None and actual_b is not None and abs(actual_b - expected_b) > 15:
-                self.set_manual_override(entity_id, new_attrs)
-            elif expected_k is not None and actual_k is not None and abs(actual_k - expected_k) > 100:
-                self.set_manual_override(entity_id, new_attrs)
             return
 
-        # 1. Check if the reported state matches what coordinator last commanded
-        matches_sent = True
-        has_comparison = False
+        new_attrs = getattr(new_state, "attributes", {}) or {}
+        old_attrs = getattr(old_state, "attributes", {}) or {}
 
-        if expected_b is not None and actual_b is not None:
-            has_comparison = True
-            # 15 units out of 255 (~6%) accommodates Zigbee 254-max caps and dimmer rounding
-            if abs(actual_b - expected_b) > 15:
-                matches_sent = False
-
-        if expected_k is not None:
-            if actual_k is not None or actual_m is not None:
-                has_comparison = True
-                ct_ok = False
-                if actual_k is not None:
-                    # Zigbee mired rounding error at high Kelvin can be up to 100K
-                    if abs(actual_k - expected_k) <= 100:
-                        ct_ok = True
-                    elif expected_m and actual_k > 0:
-                        act_m = round(1000000 / actual_k)
-                        if abs(act_m - expected_m) <= 8:
-                            ct_ok = True
-                elif actual_m is not None and expected_m is not None:
-                    if abs(actual_m - expected_m) <= 8:
-                        ct_ok = True
-                if not ct_ok:
-                    matches_sent = False
-
-        if expected_rgb is not None and actual_rgb is not None:
-            has_comparison = True
-            if not (len(actual_rgb) >= 3 and len(expected_rgb) >= 3 and
-                    all(abs(a - b) <= 25 for a, b in zip(actual_rgb[:3], expected_rgb[:3]))):
-                matches_sent = False
-
-        if has_comparison and matches_sent:
-            # The state matches coordinator command; NOT a manual override!
-            return
-
-        # 2. Check if the bulb is currently ramping towards coordinator's target
-        if last_sent:
-            time_diff = (datetime.now(timezone.utc) - last_sent["timestamp"]).total_seconds()
-            transition = float(last_sent.get("transition", 0.0) or 0.0)
-
-            if transition > 0 and time_diff <= transition + 1.5:
-                # We are within active transition duration.
-                # Check if this change is an intermediate ramp towards expected target:
-                start_b = last_sent.get("start_brightness")
-                old_b_raw = old_attrs.get("brightness")
-                old_b = old_b_raw if isinstance(old_b_raw, (int, float)) else None
-                ref_start = start_b if (start_b is not None and isinstance(start_b, (int, float))) else old_b
-
-                if expected_b is not None and actual_b is not None and ref_start is not None:
-                    lower = min(ref_start, expected_b) - 5
-                    upper = max(ref_start, expected_b) + 5
-                    if lower <= actual_b <= upper:
-                        # Bulb is legitimately ramping between start and target
-                        return
-
-        # 3. Detect actual manual changes (rotary dimming, dimmer switches, app sliders)
+        new_b = new_attrs.get("brightness") if isinstance(new_attrs.get("brightness"), (int, float)) else None
         old_b = old_attrs.get("brightness") if isinstance(old_attrs.get("brightness"), (int, float)) else None
-        b_changed = False
-        if actual_b is not None:
-            if expected_b is not None:
-                # Any departure > 15 from expected target is manual override, even if done in small increments
-                if abs(actual_b - expected_b) > 15:
-                    b_changed = True
-            elif old_b is not None and abs(actual_b - old_b) > 8:
-                b_changed = True
 
-            # If already overridden, any further dimmer movement updates override state and timer
-            if self.is_overridden(entity_id) and old_b is not None and actual_b != old_b:
-                b_changed = True
-
+        new_k = new_attrs.get("color_temp_kelvin") if isinstance(new_attrs.get("color_temp_kelvin"), (int, float)) else None
         old_k = old_attrs.get("color_temp_kelvin") if isinstance(old_attrs.get("color_temp_kelvin"), (int, float)) else None
+
+        new_m = new_attrs.get("color_temp") if isinstance(new_attrs.get("color_temp"), (int, float)) else None
         old_m = old_attrs.get("color_temp") if isinstance(old_attrs.get("color_temp"), (int, float)) else None
-        ct_changed = False
-        if actual_k is not None:
-            if expected_k is not None:
-                if abs(actual_k - expected_k) > 100:
-                    ct_changed = True
-            elif old_k is not None and abs(actual_k - old_k) > 60:
-                ct_changed = True
-        elif actual_m is not None:
-            if expected_m is not None:
-                if abs(actual_m - expected_m) > 8:
-                    ct_changed = True
-            elif old_m is not None and abs(actual_m - old_m) > 4:
-                ct_changed = True
 
-        if self.is_overridden(entity_id):
-            if actual_k is not None and old_k is not None and actual_k != old_k:
-                ct_changed = True
-            elif actual_m is not None and old_m is not None and actual_m != old_m:
-                ct_changed = True
+        new_rgb = new_attrs.get("rgb_color") if isinstance(new_attrs.get("rgb_color"), (list, tuple)) else None
+        old_rgb = old_attrs.get("rgb_color") if isinstance(old_attrs.get("rgb_color"), (list, tuple)) else None
 
-        old_rgb = old_attrs.get("rgb_color")
-        rgb_changed = False
-        if actual_rgb is not None:
-            if expected_rgb is not None:
-                if not (len(actual_rgb) >= 3 and len(expected_rgb) >= 3 and
-                        all(abs(a - b) <= 25 for a, b in zip(actual_rgb[:3], expected_rgb[:3]))):
-                    rgb_changed = True
-            elif old_rgb is not None and actual_rgb != old_rgb:
-                rgb_changed = True
+        b_changed_step = (new_b is not None and old_b is not None and new_b != old_b)
+        k_changed_step = (new_k is not None and old_k is not None and new_k != old_k)
+        m_changed_step = (new_m is not None and old_m is not None and new_m != old_m)
+        rgb_changed_step = (new_rgb is not None and old_rgb is not None and new_rgb != old_rgb)
 
-        if self.is_overridden(entity_id) and actual_rgb is not None and old_rgb is not None and actual_rgb != old_rgb:
-            rgb_changed = True
+        # 1. Heartbeat / non-lighting attribute check: if no lighting attribute changed, ignore
+        if not (b_changed_step or k_changed_step or m_changed_step or rgb_changed_step):
+            return
 
-        if b_changed or ct_changed or rgb_changed:
+        last_sent = self._last_sent_states.get(entity_id)
+        expected_b = last_sent.get("brightness") if last_sent else None
+        expected_k = last_sent.get("color_temp_kelvin") if last_sent else None
+        expected_m = last_sent.get("color_temp") if last_sent else None
+        expected_rgb = last_sent.get("rgb_color") if last_sent else None
+        transition = float(last_sent.get("transition", 0.0) or 0.0) if last_sent else 0.0
+        time_diff = (datetime.now(timezone.utc) - last_sent["timestamp"]).total_seconds() if last_sent else 999999.0
+
+        # 2. Check if the changes match what coordinator last commanded
+        b_matches = (expected_b is not None and new_b is not None and abs(new_b - expected_b) <= 15)
+
+        k_matches = False
+        if expected_k is not None:
+            if new_k is not None and abs(new_k - expected_k) <= 100:
+                k_matches = True
+            elif expected_m and new_k and new_k > 0 and abs(round(1000000 / new_k) - expected_m) <= 8:
+                k_matches = True
+            elif expected_m and new_m and abs(new_m - expected_m) <= 8:
+                k_matches = True
+        elif expected_m is not None and new_m is not None and abs(new_m - expected_m) <= 8:
+            k_matches = True
+
+        rgb_matches = (
+            expected_rgb is not None
+            and new_rgb is not None
+            and len(new_rgb) >= 3
+            and len(expected_rgb) >= 3
+            and all(abs(a - b) <= 25 for a, b in zip(new_rgb[:3], expected_rgb[:3]))
+        )
+
+        b_ok = (not b_changed_step) or b_matches
+        k_ok = (not (k_changed_step or m_changed_step)) or k_matches
+        rgb_ok = (not rgb_changed_step) or rgb_matches
+
+        if b_ok and k_ok and rgb_ok:
+            # All attributes that changed in this event match coordinator commands
+            return
+
+        # 3. Check if the change is a legitimate ramp during an active transition
+        if transition > 0 and time_diff <= transition + 2.5:
+            start_b = last_sent.get("start_brightness") if last_sent else None
+            ref_start = start_b if (start_b is not None and isinstance(start_b, (int, float))) else old_b
+
+            b_ramp = True
+            if b_changed_step:
+                if expected_b is not None and new_b is not None and ref_start is not None:
+                    lower_b = min(ref_start, expected_b) - 8
+                    upper_b = max(ref_start, expected_b) + 8
+                    b_ramp = (lower_b <= new_b <= upper_b)
+                else:
+                    b_ramp = False
+
+            k_ramp = True
+            if k_changed_step or m_changed_step:
+                if expected_k is not None and new_k is not None and old_k is not None:
+                    lower_k = min(old_k, expected_k) - 60
+                    upper_k = max(old_k, expected_k) + 60
+                    k_ramp = (lower_k <= new_k <= upper_k)
+                else:
+                    k_ramp = False
+
+            if b_ramp and k_ramp:
+                return
+
+        # 4. Genuine manual override detection (dimmer switches, rotary dials, UI sliders)
+        is_already_overridden = self.is_overridden(entity_id)
+
+        b_override = False
+        if b_changed_step and new_b is not None:
+            if is_already_overridden:
+                b_override = True
+            elif expected_b is not None:
+                # Any departure > 15 from expected target is manual override (handles rotary & step dimming)
+                if abs(new_b - expected_b) > 15:
+                    b_override = True
+            elif old_b is not None and abs(new_b - old_b) > 8:
+                b_override = True
+
+        k_override = False
+        if (k_changed_step or m_changed_step):
+            if is_already_overridden:
+                k_override = True
+            elif expected_k is not None:
+                if new_k is not None and abs(new_k - expected_k) > 100:
+                    k_override = True
+                elif expected_m and new_m and abs(new_m - expected_m) > 8:
+                    k_override = True
+            elif (old_k is not None and new_k is not None and abs(new_k - old_k) > 60) or \
+                 (old_m is not None and new_m is not None and abs(new_m - old_m) > 4):
+                k_override = True
+
+        rgb_override = False
+        if rgb_changed_step and new_rgb is not None:
+            if is_already_overridden:
+                rgb_override = True
+            elif expected_rgb is not None:
+                if not (len(new_rgb) >= 3 and len(expected_rgb) >= 3 and
+                        all(abs(a - b) <= 25 for a, b in zip(new_rgb[:3], expected_rgb[:3]))):
+                    rgb_override = True
+            elif old_rgb is not None and new_rgb != old_rgb:
+                rgb_override = True
+
+        if b_override or k_override or rgb_override:
             self.set_manual_override(entity_id, new_attrs)
 
