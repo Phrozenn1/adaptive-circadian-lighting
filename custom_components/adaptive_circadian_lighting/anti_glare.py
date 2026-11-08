@@ -83,21 +83,47 @@ class AntiGlareInterceptor:
         if not matched:
             return
 
-        # If call already specified brightness or color, user/automation explicitly asked for it
-        has_bright = "brightness" in service_data or "brightness_pct" in service_data
-        has_color = (
-            "color_temp" in service_data
-            or "color_temp_kelvin" in service_data
-            or "rgb_color" in service_data
-            or "xy_color" in service_data
-            or "hs_color" in service_data
+        # Anti-glare ONLY applies to lights that are currently OFF (prevent sudden blinding glare).
+        # When a light is already ON, service calls are dimmer adjustments, manual tweaks, or scenes.
+        off_lights = []
+        for lid in matched:
+            st = self.hass.states.get(lid)
+            if st is None or getattr(st, "state", None) != "on":
+                off_lights.append(lid)
+
+        if not off_lights:
+            return
+
+        # Check if call already specified brightness or color
+        has_bright = any(
+            k in service_data
+            for k in (
+                "brightness",
+                "brightness_pct",
+                "brightness_step",
+                "brightness_step_pct",
+            )
+        )
+        has_color = any(
+            k in service_data
+            for k in (
+                "color_temp",
+                "color_temp_kelvin",
+                "rgb_color",
+                "rgbw_color",
+                "rgbww_color",
+                "xy_color",
+                "hs_color",
+                "profile",
+                "kelvin",
+            )
         )
 
         if has_bright and has_color:
             return
 
-        # Inject missing parameters for each matched light
-        for light_id in matched:
+        # Inject missing parameters ONLY for lights that were OFF
+        for light_id in off_lights:
             payload = self.get_target_payload_callback(light_id)
             if not has_bright and "brightness_pct" in payload:
                 service_data["brightness_pct"] = payload["brightness_pct"]
