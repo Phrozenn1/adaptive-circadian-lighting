@@ -73,6 +73,10 @@ class AdaptiveOccupancyBinarySensor(BinarySensorEntity):
         return {
             "room_state": pm.room_state,
             "sensors": pm.sensors,
+            "motion_sensors": pm.motion_sensors,
+            "presence_sensors": pm.presence_sensors,
+            "motion_detected": pm.is_motion_triggered(),
+            "presence_detected": pm.is_presence_triggered(),
             "last_motion": pm.last_motion_time.isoformat() if pm.last_motion_time else None,
             "last_turned_off": pm.last_turned_off_time.isoformat() if pm.last_turned_off_time else None,
         }

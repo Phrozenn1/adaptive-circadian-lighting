@@ -218,6 +218,48 @@ class TestOverrideManager(unittest.TestCase):
         mgr = OverrideManager(self.hass, lights=["light.living_room"])
         self.assertTrue(getattr(mgr._handle_light_change, "_hass_callback", False))
 
+    def test_no_false_override_when_bulb_omits_color_attributes(self):
+        # Many Zigbee bulbs (e.g. Ikea / Hue) report brightness updates without color_temp_kelvin
+        mgr = OverrideManager(self.hass, lights=["light.living_room"])
+        mgr.record_sent_state("light.living_room", {
+            "brightness_pct": 80,
+            "color_temp_kelvin": 3200,
+            "transition": 0.0,
+        })
+        from datetime import datetime, timezone, timedelta
+        mgr._last_sent_states["light.living_room"]["timestamp"] = datetime.now(timezone.utc) - timedelta(seconds=10)
+
+        # Light reports 204 brightness (80%), but color_temp_kelvin is None in this state report
+        event = MagicMock()
+        event.data = {
+            "entity_id": "light.living_room",
+            "old_state": MagicMock(state="on", attributes={"brightness": 100, "color_temp_kelvin": 2700}),
+            "new_state": MagicMock(state="on", attributes={"brightness": 204, "color_temp_kelvin": None}),
+        }
+        mgr._handle_light_change(event)
+        self.assertFalse(mgr.is_overridden("light.living_room"))
+
+    def test_no_false_override_when_brightness_matches_expected_even_if_old_different(self):
+        # Light transitioned from 100 to 255 because of coordinator command
+        mgr = OverrideManager(self.hass, lights=["light.living_room"])
+        mgr.record_sent_state("light.living_room", {
+            "brightness_pct": 100,  # 255
+            "color_temp_kelvin": 4000,
+            "transition": 0.0,
+        })
+        from datetime import datetime, timezone, timedelta
+        mgr._last_sent_states["light.living_room"]["timestamp"] = datetime.now(timezone.utc) - timedelta(seconds=10)
+
+        # Bulb reports 254 (Ikea/Hue max is 254)
+        event = MagicMock()
+        event.data = {
+            "entity_id": "light.living_room",
+            "old_state": MagicMock(state="on", attributes={"brightness": 100, "color_temp_kelvin": 4000}),
+            "new_state": MagicMock(state="on", attributes={"brightness": 254, "color_temp_kelvin": 4000}),
+        }
+        mgr._handle_light_change(event)
+        self.assertFalse(mgr.is_overridden("light.living_room"))
+
 
 if __name__ == "__main__":
     unittest.main()

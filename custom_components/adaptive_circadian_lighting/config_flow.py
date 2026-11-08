@@ -31,6 +31,7 @@ from .const import (
     CONF_MIN_BRIGHTNESS,
     CONF_MIN_COLOR_TEMP,
     CONF_MOTION_DEBOUNCE,
+    CONF_MOTION_SENSORS,
     CONF_NAME,
     CONF_OFF_TIMEOUT,
     CONF_OVERRIDE_TIMEOUT,
@@ -189,6 +190,9 @@ class AdaptiveCircadianConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         schema = vol.Schema(
             {
                 vol.Required(CONF_PRESENCE_ENABLE, default=False): bool,
+                vol.Optional(CONF_MOTION_SENSORS): selector.EntitySelector(
+                    selector.EntitySelectorConfig(domain=["binary_sensor", "sensor", "input_boolean"], multiple=True)
+                ),
                 vol.Optional(CONF_PRESENCE_SENSORS): selector.EntitySelector(
                     selector.EntitySelectorConfig(domain=["binary_sensor", "sensor", "input_boolean"], multiple=True)
                 ),
@@ -382,7 +386,10 @@ class AdaptiveCircadianOptionsFlow(config_entries.OptionsFlow):
             ),
             vol.Required(CONF_ANTI_GLARE, default=bool(current.get(CONF_ANTI_GLARE, True))): bool,
             vol.Required(CONF_PRESENCE_ENABLE, default=bool(current.get(CONF_PRESENCE_ENABLE, False))): bool,
-            vol.Optional(CONF_PRESENCE_SENSORS): selector.EntitySelector(
+            vol.Optional(CONF_MOTION_SENSORS, default=current.get(CONF_MOTION_SENSORS) or []): selector.EntitySelector(
+                selector.EntitySelectorConfig(domain=["binary_sensor", "sensor", "input_boolean"], multiple=True)
+            ),
+            vol.Optional(CONF_PRESENCE_SENSORS, default=current.get(CONF_PRESENCE_SENSORS) or []): selector.EntitySelector(
                 selector.EntitySelectorConfig(domain=["binary_sensor", "sensor", "input_boolean"], multiple=True)
             ),
             vol.Required(CONF_AUTO_TURN_ON, default=bool(current.get(CONF_AUTO_TURN_ON, DEFAULT_AUTO_TURN_ON))): bool,

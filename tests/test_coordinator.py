@@ -12,6 +12,7 @@ from homeassistant.components.light import DOMAIN as LIGHT_DOMAIN
 from custom_components.adaptive_circadian_lighting.coordinator import AdaptiveCoordinator
 from custom_components.adaptive_circadian_lighting.const import (
     CONF_LIGHTS,
+    CONF_MOTION_SENSORS,
     CONF_PRESENCE_ENABLE,
     CONF_PRESENCE_SENSORS,
     CONF_DIM_BRIGHTNESS,
@@ -42,6 +43,20 @@ class TestCoordinatorPresence(unittest.IsolatedAsyncioTestCase):
         coord = AdaptiveCoordinator(self.hass, entry)
         self.assertIsNotNone(coord.presence_mgr)
         self.assertEqual(coord.presence_mgr.sensors, ["binary_sensor.kitchen_motion"])
+
+    def test_auto_enable_presence_when_motion_and_presence_sensors_configured(self):
+        entry = DummyConfigEntry(data={
+            CONF_LIGHTS: ["light.living_room"],
+            CONF_PRESENCE_ENABLE: False,
+            CONF_MOTION_SENSORS: ["binary_sensor.ikea_vallhorn"],
+            CONF_PRESENCE_SENSORS: ["binary_sensor.kitchen_fp2"],
+        })
+        coord = AdaptiveCoordinator(self.hass, entry)
+        self.assertIsNotNone(coord.presence_mgr)
+        self.assertEqual(coord.presence_mgr.motion_sensors, ["binary_sensor.ikea_vallhorn"])
+        self.assertEqual(coord.presence_mgr.presence_sensors, ["binary_sensor.kitchen_fp2"])
+        self.assertIn("binary_sensor.ikea_vallhorn", coord.presence_mgr.sensors)
+        self.assertIn("binary_sensor.kitchen_fp2", coord.presence_mgr.sensors)
 
     def test_presence_manager_none_when_no_sensors(self):
         entry = DummyConfigEntry(data={

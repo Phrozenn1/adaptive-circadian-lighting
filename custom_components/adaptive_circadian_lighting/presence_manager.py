@@ -156,7 +156,9 @@ class PresenceManager:
     def __init__(
         self,
         hass: HomeAssistant,
-        sensors: List[str],
+        sensors: Optional[List[str]] = None,
+        motion_sensors: Optional[List[str]] = None,
+        presence_sensors: Optional[List[str]] = None,
         dim_timeout: int = DEFAULT_DIM_TIMEOUT,
         off_timeout: int = DEFAULT_OFF_TIMEOUT,
         grace_period: int = DEFAULT_GRACE_PERIOD,
@@ -175,7 +177,14 @@ class PresenceManager:
         on_state_change_callback: Optional[Callable[[str], Any]] = None,
     ) -> None:
         self.hass = hass
-        self.sensors = _normalize_entity_list(sensors)
+        self.motion_sensors = _normalize_entity_list(motion_sensors)
+        self.presence_sensors = _normalize_entity_list(presence_sensors if presence_sensors is not None else sensors)
+        # Unified sensor list for backwards compatibility and aggregate status
+        combined_sensors: List[str] = []
+        for s in self.motion_sensors + self.presence_sensors:
+            if s not in combined_sensors:
+                combined_sensors.append(s)
+        self.sensors = combined_sensors
         self.dim_timeout = dim_timeout
         self.off_timeout = off_timeout
         self.grace_period = grace_period
@@ -211,23 +220,34 @@ class PresenceManager:
         if not self.sensors:
             return
 
-        # Register event tracker for all configured sensors so state transitions trigger immediately
-        for sensor_id in self.sensors:
+        # 1. Track fast motion sensors (PIR / door contacts) with instantaneous turn-on routine
+        if self.motion_sensors:
             try:
                 unsub = async_track_state_change_event(
-                    self.hass, sensor_id, self._handle_motion_event
+                    self.hass, self.motion_sensors, self._handle_motion_event
                 )
                 if callable(unsub):
                     self._unsub_trackers.append(unsub)
             except Exception as err:
-                _LOGGER.error("PresenceManager: error tracking sensor %s: %s", sensor_id, err)
+                _LOGGER.error("PresenceManager: error tracking motion sensors %s: %s", self.motion_sensors, err)
 
-        # Register periodic check for continuous presence (e.g. mmWave Aqara FP1/FP2)
+        # 2. Track mmWave presence sensors (radar / static occupancy) with continuous hold routine
+        if self.presence_sensors:
+            try:
+                unsub = async_track_state_change_event(
+                    self.hass, self.presence_sensors, self._handle_presence_event
+                )
+                if callable(unsub):
+                    self._unsub_trackers.append(unsub)
+            except Exception as err:
+                _LOGGER.error("PresenceManager: error tracking presence sensors %s: %s", self.presence_sensors, err)
+
+        # 3. Fast watchdog for continuous mmWave presence (checks every 5 seconds)
         try:
             from homeassistant.helpers.event import async_track_time_interval
             from datetime import timedelta
             unsub_interval = async_track_time_interval(
-                self.hass, self.check_continuous_presence, timedelta(seconds=15)
+                self.hass, self.check_continuous_presence, timedelta(seconds=5)
             )
             if callable(unsub_interval):
                 self._unsub_trackers.append(unsub_interval)
@@ -343,8 +363,32 @@ class PresenceManager:
 
         return False
 
+    def is_motion_triggered(self) -> bool:
+        """Check if any configured fast motion (PIR / door) sensor is currently triggered."""
+        for sensor_id in self.motion_sensors:
+            try:
+                st = self.hass.states.get(sensor_id)
+                if self.is_sensor_triggered(st):
+                    return True
+            except Exception as err:
+                _LOGGER.warning("PresenceManager: error evaluating motion sensor %s: %s", sensor_id, err)
+        return False
+
+    def is_presence_triggered(self) -> bool:
+        """Check if any configured mmWave radar or presence sensor is currently triggered."""
+        for sensor_id in self.presence_sensors:
+            try:
+                st = self.hass.states.get(sensor_id)
+                if self.is_sensor_triggered(st):
+                    return True
+            except Exception as err:
+                _LOGGER.warning("PresenceManager: error evaluating presence sensor %s: %s", sensor_id, err)
+        return False
+
     def is_occupied(self) -> bool:
-        """Check if any configured presence sensor is currently triggered."""
+        """Check if any motion or presence sensor reports occupancy."""
+        if self.motion_sensors or self.presence_sensors:
+            return self.is_motion_triggered() or self.is_presence_triggered()
         for sensor_id in self.sensors:
             try:
                 st = self.hass.states.get(sensor_id)
@@ -396,20 +440,47 @@ class PresenceManager:
 
     @callback
     def check_continuous_presence(self, _now: Optional[datetime] = None) -> None:
-        """Periodic check for mmWave / continuous presence sensors.
+        """Periodic watchdog check for mmWave / continuous presence sensors.
 
-        If sensor is triggered and lights are currently off, trigger reoccupancy.
+        If sensor reports presence while lights are off, turn them on (with 15s cooldown after manual turn-off).
+        If room was dimmed while presence is detected, immediately restore full occupancy.
         """
         if not self.auto_turn_on:
             return
-        if self.are_lights_off() and self.is_occupied():
-            _LOGGER.debug(
-                "PresenceManager: continuous presence detected while lights are off. Triggering reoccupancy."
-            )
+
+        has_presence = self.is_presence_triggered()
+        if not has_presence and not self.presence_sensors and self.is_occupied():
+            # If user configured only generic sensors list, check aggregate occupancy
+            has_presence = True
+
+        if has_presence:
             now = datetime.now(timezone.utc)
             self.last_motion_time = now
-            self._cancel_timers()
-            self._handle_reoccupancy(now)
+
+            if self.are_lights_off():
+                # Allow a brief 15s cooldown if user just manually turned lights off
+                if self.last_turned_off_time is not None:
+                    elapsed = (now - self.last_turned_off_time).total_seconds()
+                    if elapsed < 15.0:
+                        _LOGGER.debug(
+                            "PresenceManager [mmWave]: continuous presence detected but lights turned off %.1fs ago (<15s cooldown).",
+                            elapsed,
+                        )
+                        return
+
+                _LOGGER.debug(
+                    "PresenceManager [mmWave]: continuous presence detected while lights are off. Triggering reoccupancy."
+                )
+                self._cancel_timers()
+                self._handle_reoccupancy(now)
+            elif self.room_state == STATE_DIMMED:
+                _LOGGER.debug(
+                    "PresenceManager [mmWave]: continuous presence detected while room was dimmed. Restoring full occupancy."
+                )
+                self._cancel_timers()
+                self._set_room_state(STATE_OCCUPIED)
+                if self.on_turn_on_adaptive_callback:
+                    self._dispatch_callback(self.on_turn_on_adaptive_callback)
 
     def _check_initial_sensor_state(self) -> None:
         """Check current sensor state at startup."""
@@ -426,7 +497,7 @@ class PresenceManager:
 
     @callback
     def _handle_motion_event(self, event: Event) -> None:
-        """Handle state change from an Aqara or standard motion/presence sensor."""
+        """Handle fast movement events (PIR / door contact sensors)."""
         if hasattr(event, "data"):
             new_state = event.data.get("new_state")
             entity_id = event.data.get("entity_id")
@@ -441,7 +512,7 @@ class PresenceManager:
 
         is_on = self.is_sensor_triggered(new_state)
         _LOGGER.debug(
-            "PresenceManager: sensor %s state=%s (is_on=%s)",
+            "PresenceManager [PIR]: motion sensor %s state=%s (is_on=%s)",
             entity_id,
             getattr(new_state, "state", None),
             is_on,
@@ -450,6 +521,7 @@ class PresenceManager:
         now = datetime.now(timezone.utc)
 
         if is_on:
+            # Instant PIR edge trigger: cancel timers, set occupied, turn lights on immediately
             self._cancel_timers()
             self.last_motion_time = now
             lights_off = self.are_lights_off()
@@ -459,7 +531,59 @@ class PresenceManager:
             if lights_off or was_empty:
                 self._handle_reoccupancy(now)
         else:
-            # When sensor turns off, check if all sensors are now clear
+            # Motion sensor cleared.
+            # Sensor Fusion: Only start dimming if no other motion sensor AND no presence sensor is active!
+            if not self.is_occupied():
+                if not self.are_lights_off():
+                    self._schedule_debounce_or_dim()
+                else:
+                    self._set_room_state(STATE_OFF)
+                    self._cancel_timers()
+            else:
+                _LOGGER.debug(
+                    "PresenceManager [PIR]: motion sensor cleared but mmWave/presence still active. Holding occupancy."
+                )
+
+        if self.on_state_change_callback:
+            self._dispatch_callback(self.on_state_change_callback, self.room_state)
+
+    @callback
+    def _handle_presence_event(self, event: Event) -> None:
+        """Handle mmWave radar / static presence events."""
+        if hasattr(event, "data"):
+            new_state = event.data.get("new_state")
+            entity_id = event.data.get("entity_id")
+        elif isinstance(event, dict):
+            new_state = event.get("new_state")
+            entity_id = event.get("entity_id")
+        else:
+            return
+
+        if not new_state:
+            return
+
+        is_on = self.is_sensor_triggered(new_state)
+        _LOGGER.debug(
+            "PresenceManager [mmWave]: presence sensor %s state=%s (is_on=%s)",
+            entity_id,
+            getattr(new_state, "state", None),
+            is_on,
+        )
+
+        now = datetime.now(timezone.utc)
+
+        if is_on:
+            # mmWave occupancy detected: cancel timers, set occupied, turn lights on
+            self._cancel_timers()
+            self.last_motion_time = now
+            lights_off = self.are_lights_off()
+            was_empty = self.room_state in (STATE_DIMMED, STATE_OFF)
+            self._set_room_state(STATE_OCCUPIED)
+
+            if lights_off or was_empty:
+                self._handle_reoccupancy(now)
+        else:
+            # mmWave presence cleared
             if not self.is_occupied():
                 if not self.are_lights_off():
                     self._schedule_debounce_or_dim()
@@ -467,7 +591,6 @@ class PresenceManager:
                     self._set_room_state(STATE_OFF)
                     self._cancel_timers()
 
-        # Always notify callback on every sensor state transition for real-time updates
         if self.on_state_change_callback:
             self._dispatch_callback(self.on_state_change_callback, self.room_state)
 
