@@ -247,6 +247,94 @@ class TestCoordinatorPresence(unittest.IsolatedAsyncioTestCase):
         coord._notify_listeners()
         self.assertTrue(good_called)
 
+    async def test_async_apply_to_light_allow_turn_on_resets_override(self):
+        entry = DummyConfigEntry(data={CONF_LIGHTS: ["light.living_room"]})
+        coord = AdaptiveCoordinator(self.hass, entry)
+        coord.override_mgr.set_manual_override("light.living_room", {"brightness": 200})
+        self.assertTrue(coord.override_mgr.is_overridden("light.living_room"))
+
+        st = MagicMock()
+        st.state = "off"
+        st.attributes = {"supported_color_modes": ["brightness"]}
+        self.hass.states.get.return_value = st
+
+        await coord._async_apply_to_light("light.living_room", allow_turn_on=True)
+
+        self.assertFalse(coord.override_mgr.is_overridden("light.living_room"))
+        self.hass.services.async_call.assert_called_once()
+        self.assertEqual(self.hass.services.async_call.call_args[0][1], "turn_on")
+
+    async def test_async_apply_to_light_blocked_by_override_when_allow_turn_on_false(self):
+        entry = DummyConfigEntry(data={CONF_LIGHTS: ["light.living_room"]})
+        coord = AdaptiveCoordinator(self.hass, entry)
+        coord.override_mgr.set_manual_override("light.living_room", {"brightness": 200})
+
+        st = MagicMock()
+        st.state = "on"
+        st.attributes = {"supported_color_modes": ["brightness"]}
+        self.hass.states.get.return_value = st
+
+        await coord._async_apply_to_light("light.living_room", allow_turn_on=False)
+        self.hass.services.async_call.assert_not_called()
+
+    async def test_async_apply_to_light_allow_turn_on_ensures_brightness_even_if_adapt_brightness_disabled(self):
+        entry = DummyConfigEntry(data={CONF_LIGHTS: ["light.living_room"]})
+        coord = AdaptiveCoordinator(self.hass, entry)
+        coord.adapt_brightness_enabled = False
+        coord.target_brightness = 80
+
+        st = MagicMock()
+        st.state = "off"
+        st.attributes = {"supported_color_modes": ["brightness"]}
+        self.hass.states.get.return_value = st
+
+        await coord._async_apply_to_light("light.living_room", allow_turn_on=True)
+
+        call_args = self.hass.services.async_call.call_args[0][2]
+        self.assertEqual(call_args["brightness_pct"], 80)
+
+    async def test_async_apply_to_light_allow_turn_on_zero_brightness_safeguard(self):
+        entry = DummyConfigEntry(data={CONF_LIGHTS: ["light.living_room"]})
+        coord = AdaptiveCoordinator(self.hass, entry)
+        coord.target_brightness = 0  # e.g. uninitialized or 0
+
+        st = MagicMock()
+        st.state = "off"
+        st.attributes = {"supported_color_modes": ["brightness"]}
+        self.hass.states.get.return_value = st
+
+        await coord._async_apply_to_light("light.living_room", allow_turn_on=True)
+
+        call_args = self.hass.services.async_call.call_args[0][2]
+        self.assertEqual(call_args["brightness_pct"], 100)
+
+    async def test_periodic_update_checks_continuous_presence(self):
+        entry = DummyConfigEntry(data={
+            CONF_LIGHTS: ["light.living_room"],
+            CONF_PRESENCE_ENABLE: True,
+            CONF_PRESENCE_SENSORS: ["binary_sensor.kitchen_motion"],
+        })
+        coord = AdaptiveCoordinator(self.hass, entry)
+        coord.presence_mgr.check_continuous_presence = MagicMock()
+
+        await coord._async_periodic_update()
+        coord.presence_mgr.check_continuous_presence.assert_called_once()
+
+    async def test_presence_restore_manual_error_falls_back_to_adaptive(self):
+        entry = DummyConfigEntry(data={
+            CONF_LIGHTS: ["light.living_room"],
+            CONF_PRESENCE_ENABLE: True,
+            CONF_PRESENCE_SENSORS: ["binary_sensor.kitchen_motion"],
+        })
+        coord = AdaptiveCoordinator(self.hass, entry)
+        coord._on_presence_turn_on_adaptive = AsyncMock()
+
+        # Cause exception in restore manual by passing invalid structure
+        saved_states = {"light.living_room": None}  # None has no .get()
+        await coord._on_presence_restore_manual(saved_states)
+
+        coord._on_presence_turn_on_adaptive.assert_called_once()
+
 
 if __name__ == "__main__":
     unittest.main()

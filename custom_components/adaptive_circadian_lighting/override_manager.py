@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 import logging
 from typing import Any, Callable, Dict, List, Optional
 
-from homeassistant.core import Event, HomeAssistant
+from homeassistant.core import Event, HomeAssistant, callback
 from homeassistant.helpers.event import async_track_state_change_event
 
 from .const import DEFAULT_OVERRIDE_TIMEOUT
@@ -169,6 +169,7 @@ class OverrideManager:
         )
         self.reset_override(entity_id, notify_callback=True)
 
+    @callback
     def _handle_light_change(self, event: Event) -> None:
         """Evaluate whether a state change was manual or automated."""
         if hasattr(event, "data"):

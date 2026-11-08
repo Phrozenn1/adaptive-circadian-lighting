@@ -5,7 +5,7 @@ import logging
 from typing import Any, Callable, Dict, List, Optional
 
 from homeassistant.const import EVENT_CALL_SERVICE
-from homeassistant.core import Event, HomeAssistant
+from homeassistant.core import Event, HomeAssistant, callback
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -50,6 +50,7 @@ class AntiGlareInterceptor:
         elif enabled and not self._unsub:
             self.start()
 
+    @callback
     def _handle_service_call(self, event: Event) -> None:
         """Intercept light.turn_on and inject parameters if missing."""
         if not self.enabled:

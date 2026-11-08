@@ -415,12 +415,135 @@ class TestPresenceManager(unittest.TestCase):
         self.assertTrue(pm.is_sensor_triggered(MockState("left_enter")))
         self.assertTrue(pm.is_sensor_triggered(MockState("right_enter")))
 
+    def test_callback_decorator_present(self):
+        pm = PresenceManager(self.hass, sensors=["binary_sensor.motion"])
+        self.assertTrue(getattr(pm._handle_motion_event, "_hass_callback", False))
+        self.assertTrue(getattr(pm.check_continuous_presence, "_hass_callback", False))
+
     def test_parasoll_string_contact_state(self):
         pm = PresenceManager(self.hass, sensors=["binary_sensor.parasoll"])
         # Some MQTT bridges serialize False as string "false" or "0"
         self.assertTrue(pm.is_sensor_triggered(MockState("off", {"contact": "false"})))
         self.assertTrue(pm.is_sensor_triggered(MockState("off", {"contact": "0"})))
         self.assertFalse(pm.is_sensor_triggered(MockState("off", {"contact": "true"})))
+
+    def test_dispatch_callback_threadsafe_fallback(self):
+        import asyncio
+        from unittest.mock import patch
+
+        pm = PresenceManager(self.hass, sensors=["binary_sensor.motion"])
+        self.hass.async_create_task.side_effect = RuntimeError("Called from thread")
+
+        async def sample_coro():
+            return 42
+
+        coro = sample_coro()
+
+        with patch("asyncio.run_coroutine_threadsafe") as mock_threadsafe:
+            pm._dispatch_callback(lambda: coro)
+            mock_threadsafe.assert_called_once_with(coro, self.hass.loop)
+        coro.close()
+
+    def test_mmwave_event_when_already_occupied_and_lights_off_triggers_reoccupancy(self):
+        turn_on_called = False
+        def turn_on_cb():
+            nonlocal turn_on_called
+            turn_on_called = True
+
+        pm = PresenceManager(
+            self.hass,
+            sensors=["binary_sensor.mmwave"],
+            auto_turn_on=True,
+            are_lights_off_callback=lambda: True,
+            on_turn_on_adaptive_callback=turn_on_cb,
+        )
+        # Prior room state is already OCCUPIED (e.g. continuous mmWave presence)
+        pm.room_state = STATE_OCCUPIED
+
+        event = MagicMock()
+        event.data = {"entity_id": "binary_sensor.mmwave", "new_state": MockState("on")}
+        pm._handle_motion_event(event)
+
+        # Lights were off, so reoccupancy MUST have been triggered
+        self.assertTrue(turn_on_called)
+
+    def test_check_continuous_presence_triggers_turn_on_when_lights_off(self):
+        turn_on_called = False
+        def turn_on_cb():
+            nonlocal turn_on_called
+            turn_on_called = True
+
+        pm = PresenceManager(
+            self.hass,
+            sensors=["binary_sensor.mmwave"],
+            auto_turn_on=True,
+            are_lights_off_callback=lambda: True,
+            on_turn_on_adaptive_callback=turn_on_cb,
+        )
+        self.hass.states.get.return_value = MockState("on")
+
+        pm.check_continuous_presence()
+        self.assertTrue(turn_on_called)
+
+    def test_check_continuous_presence_does_not_trigger_when_lights_on(self):
+        turn_on_called = False
+        def turn_on_cb():
+            nonlocal turn_on_called
+            turn_on_called = True
+
+        pm = PresenceManager(
+            self.hass,
+            sensors=["binary_sensor.mmwave"],
+            auto_turn_on=True,
+            are_lights_off_callback=lambda: False,
+            on_turn_on_adaptive_callback=turn_on_cb,
+        )
+        self.hass.states.get.return_value = MockState("on")
+
+        pm.check_continuous_presence()
+        self.assertFalse(turn_on_called)
+
+    def test_reoccupancy_with_zero_brightness_manual_falls_back_to_adaptive(self):
+        restore_cb = MagicMock()
+        turn_on_adaptive_cb = MagicMock()
+
+        pm = PresenceManager(
+            self.hass,
+            sensors=["binary_sensor.motion"],
+            grace_period=900,
+            on_restore_manual_callback=restore_cb,
+            on_turn_on_adaptive_callback=turn_on_adaptive_cb,
+        )
+        # Saved state has brightness=0
+        pm.save_manual_state("light.kitchen", {"brightness": 0, "color_temp_kelvin": 4000})
+        pm.room_state = STATE_OFF
+        pm.last_turned_off_time = datetime.now(timezone.utc) - timedelta(minutes=1)
+
+        pm._handle_reoccupancy(datetime.now(timezone.utc))
+
+        restore_cb.assert_not_called()
+        turn_on_adaptive_cb.assert_called_once()
+        self.assertFalse(pm.has_manual_state())
+
+    def test_reoccupancy_restore_callback_exception_falls_back_to_adaptive(self):
+        restore_cb = MagicMock(side_effect=RuntimeError("Restore failed"))
+        turn_on_adaptive_cb = MagicMock()
+
+        pm = PresenceManager(
+            self.hass,
+            sensors=["binary_sensor.motion"],
+            grace_period=900,
+            on_restore_manual_callback=restore_cb,
+            on_turn_on_adaptive_callback=turn_on_adaptive_cb,
+        )
+        pm.save_manual_state("light.kitchen", {"brightness": 200, "color_temp_kelvin": 4000})
+        pm.room_state = STATE_OFF
+        pm.last_turned_off_time = datetime.now(timezone.utc) - timedelta(minutes=1)
+
+        pm._handle_reoccupancy(datetime.now(timezone.utc))
+
+        restore_cb.assert_called_once()
+        turn_on_adaptive_cb.assert_called_once()
 
 
 if __name__ == "__main__":

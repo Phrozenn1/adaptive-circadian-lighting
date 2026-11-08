@@ -7,7 +7,10 @@ if "homeassistant" not in sys.modules:
     ha = MagicMock()
     sys.modules["homeassistant"] = ha
     core_mock = MagicMock()
-    core_mock.callback = lambda f: f
+    def _mock_callback(f):
+        f._hass_callback = True
+        return f
+    core_mock.callback = _mock_callback
     sys.modules["homeassistant.core"] = core_mock
     ha.core = core_mock
 
