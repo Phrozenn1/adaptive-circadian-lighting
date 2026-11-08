@@ -57,6 +57,8 @@ POSITIVE_STATES = {
     "entered",
     "enter_left",
     "enter_right",
+    "left_enter",
+    "right_enter",
     "approach",
     "approaching",
     "someone",
@@ -211,10 +213,14 @@ class PresenceManager:
 
         # Register event tracker for all configured sensors so state transitions trigger immediately
         for sensor_id in self.sensors:
-            unsub = async_track_state_change_event(
-                self.hass, sensor_id, self._handle_motion_event
-            )
-            self._unsub_trackers.append(unsub)
+            try:
+                unsub = async_track_state_change_event(
+                    self.hass, sensor_id, self._handle_motion_event
+                )
+                if callable(unsub):
+                    self._unsub_trackers.append(unsub)
+            except Exception as err:
+                _LOGGER.error("PresenceManager: error tracking sensor %s: %s", sensor_id, err)
 
         # Evaluate initial state
         self._check_initial_sensor_state()
@@ -291,8 +297,10 @@ class PresenceManager:
         # Check Aqara/mmWave specific attributes (FP2 zones, PIR motion flag, radar targets, etc.)
         attrs = getattr(state_obj, "attributes", {}) or {}
         # Special check for contact sensors (e.g. IKEA Parasoll): contact=False means open/triggered
-        if "contact" in attrs and attrs.get("contact") is False:
-            return True
+        if "contact" in attrs:
+            c_val = attrs.get("contact")
+            if c_val is False or (isinstance(c_val, str) and c_val.strip().lower() in ("false", "0", "no", "open", "opened")):
+                return True
 
         for key in OCCUPANCY_ATTRIBUTES:
             if key not in attrs:

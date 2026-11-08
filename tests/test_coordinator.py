@@ -183,6 +183,70 @@ class TestCoordinatorPresence(unittest.IsolatedAsyncioTestCase):
         await coord.async_setup()
         coord.presence_mgr.start_tracking.assert_called_once()
 
+    def test_presence_sensors_attribute_saved(self):
+        entry = DummyConfigEntry(data={
+            CONF_LIGHTS: ["light.living_room"],
+            CONF_PRESENCE_ENABLE: True,
+            CONF_PRESENCE_SENSORS: ["binary_sensor.kitchen_motion", "binary_sensor.ikea_motion"],
+        })
+        coord = AdaptiveCoordinator(self.hass, entry)
+        self.assertEqual(coord.presence_sensors, ["binary_sensor.kitchen_motion", "binary_sensor.ikea_motion"])
+
+    def test_anti_glare_payload_records_sent_state(self):
+        entry = DummyConfigEntry(data={
+            CONF_LIGHTS: ["light.living_room"],
+        })
+        coord = AdaptiveCoordinator(self.hass, entry)
+        coord.override_mgr = MagicMock()
+
+        payload = coord._get_anti_glare_payload("light.living_room")
+        coord.override_mgr.record_sent_state.assert_called_once_with("light.living_room", payload)
+
+    async def test_presence_restore_manual_dimmable_only_light(self):
+        entry = DummyConfigEntry(data={
+            CONF_LIGHTS: ["light.dimmable_bulb"],
+            CONF_PRESENCE_ENABLE: True,
+            CONF_PRESENCE_SENSORS: ["binary_sensor.kitchen_motion"],
+        })
+        coord = AdaptiveCoordinator(self.hass, entry)
+        coord._calculate_target_values = MagicMock()
+        coord.target_brightness = 50
+
+        # Bulb is dimmable only (does not support color_temp)
+        st = MagicMock()
+        st.attributes = {"supported_color_modes": ["brightness"]}
+        self.hass.states.get.return_value = st
+
+        saved_states = {
+            "light.dimmable_bulb": {
+                "brightness": 128,
+            }
+        }
+        await coord._on_presence_restore_manual(saved_states)
+
+        call_args = self.hass.services.async_call.call_args[0][2]
+        self.assertEqual(call_args["brightness"], 128)
+        self.assertNotIn("color_temp_kelvin", call_args)
+
+    def test_notify_listeners_handles_exception_safely(self):
+        entry = DummyConfigEntry(data={CONF_LIGHTS: ["light.living_room"]})
+        coord = AdaptiveCoordinator(self.hass, entry)
+
+        def bad_listener():
+            raise RuntimeError("Failing listener")
+
+        good_called = False
+        def good_listener():
+            nonlocal good_called
+            good_called = True
+
+        coord.register_listener(bad_listener)
+        coord.register_listener(good_listener)
+
+        # Must not raise exception and good_listener must still be called
+        coord._notify_listeners()
+        self.assertTrue(good_called)
+
 
 if __name__ == "__main__":
     unittest.main()

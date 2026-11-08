@@ -189,6 +189,31 @@ class TestOverrideManager(unittest.TestCase):
 
         self.assertTrue(mgr.is_overridden("light.living_room"))
 
+    def test_old_state_none_does_not_trigger_override(self):
+        # On HA startup or initial entity discovery, old_state is None
+        mgr = OverrideManager(self.hass, lights=["light.living_room"])
+        event = MagicMock()
+        event.data = {
+            "entity_id": "light.living_room",
+            "old_state": None,
+            "new_state": MagicMock(state="on", attributes={"brightness": 255, "color_temp_kelvin": 3000}),
+        }
+        mgr._handle_light_change(event)
+        self.assertFalse(mgr.is_overridden("light.living_room"))
+
+    def test_none_attributes_do_not_crash_or_override(self):
+        # Attributes can contain None for brightness or color_temp_kelvin (e.g. RGB or transitioning lights)
+        mgr = OverrideManager(self.hass, lights=["light.living_room"])
+        event = MagicMock()
+        event.data = {
+            "entity_id": "light.living_room",
+            "old_state": MagicMock(state="on", attributes={"brightness": None, "color_temp_kelvin": None}),
+            "new_state": MagicMock(state="on", attributes={"brightness": None, "color_temp_kelvin": None}),
+        }
+        # Must not raise TypeError
+        mgr._handle_light_change(event)
+        self.assertFalse(mgr.is_overridden("light.living_room"))
+
 
 if __name__ == "__main__":
     unittest.main()
