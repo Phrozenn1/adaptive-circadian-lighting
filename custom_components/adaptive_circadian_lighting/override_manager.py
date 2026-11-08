@@ -24,12 +24,14 @@ class OverrideManager:
         timeout_minutes: int = DEFAULT_OVERRIDE_TIMEOUT,
         on_override_reset_callback: Optional[Callable[[str], Any]] = None,
         on_manual_change_callback: Optional[Callable[[str, Dict[str, Any]], Any]] = None,
+        on_lights_off_callback: Optional[Callable[[str], Any]] = None,
     ) -> None:
         self.hass = hass
         self.lights = lights
         self.timeout_minutes = timeout_minutes
         self.on_override_reset_callback = on_override_reset_callback
         self.on_manual_change_callback = on_manual_change_callback
+        self.on_lights_off_callback = on_lights_off_callback
 
         # Track what our integration last sent so we don't trigger ourselves
         self._last_sent_states: Dict[str, Dict[str, Any]] = {}
@@ -132,6 +134,8 @@ class OverrideManager:
             # If light turned off, clear override silently so it re-adapts next time it turns on
             if old_state and old_state.state == "on" and new_state and new_state.state == "off":
                 self.reset_override(entity_id, notify_callback=False)
+            if self.on_lights_off_callback and (not new_state or new_state.state == "off"):
+                self.on_lights_off_callback(entity_id)
             return
 
         # If it was off and just turned on, let anti-glare / coordinator adapt it

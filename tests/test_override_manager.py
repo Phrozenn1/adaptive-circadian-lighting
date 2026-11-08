@@ -69,6 +69,23 @@ class TestOverrideManager(unittest.TestCase):
         self.assertFalse(mgr.is_overridden("light.kitchen"))
         self.assertTrue(reset_called)
 
+    def test_turning_off_light_triggers_on_lights_off_callback(self):
+        off_entity_called = None
+        def on_off(entity_id):
+            nonlocal off_entity_called
+            off_entity_called = entity_id
+
+        mgr = OverrideManager(
+            self.hass,
+            lights=["light.kitchen"],
+            on_lights_off_callback=on_off,
+        )
+
+        off_event = MockEvent("light.kitchen", "on", "off")
+        mgr._handle_light_change(off_event)
+
+        self.assertEqual(off_entity_called, "light.kitchen")
+
 
 if __name__ == "__main__":
     unittest.main()

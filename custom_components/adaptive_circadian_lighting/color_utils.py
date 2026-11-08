@@ -90,13 +90,15 @@ def prepare_light_service_data(
     transition: float | None = None,
 ) -> dict[str, Any]:
     """Determine the exact service payload for light.turn_on."""
+    modes = set(supported_modes or [])
+    if modes == {"onoff"}:
+        return {}
+
     service_data: dict[str, Any] = {
         "brightness_pct": max(1, min(100, int(brightness_pct)))
     }
     if transition is not None:
         service_data["transition"] = float(transition)
-
-    modes = set(supported_modes or [])
     supports_kelvin = "color_temp" in modes or "color_temp_kelvin" in modes
     supports_rgb = bool({"rgb", "rgbw", "rgbww", "xy", "hs"} & modes)
 

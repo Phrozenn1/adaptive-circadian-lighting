@@ -123,27 +123,30 @@ class AdaptiveCoordinator:
         self.hass = hass
         self.entry = entry
 
+        config = {**(entry.data or {}), **(entry.options or {})}
+
         # Config properties
-        self.name: str = entry.data.get(CONF_NAME, "Adaptive Lighting")
-        self.lights: List[str] = list(entry.data.get(CONF_LIGHTS, []))
-        self.calc_mode: str = entry.data.get(CONF_CALC_MODE, DEFAULT_CALC_MODE)
-        self.color_mode: str = entry.data.get(CONF_COLOR_MODE, DEFAULT_COLOR_MODE)
-        self.min_brightness: int = entry.data.get(CONF_MIN_BRIGHTNESS, DEFAULT_MIN_BRIGHTNESS)
-        self.max_brightness: int = entry.data.get(CONF_MAX_BRIGHTNESS, DEFAULT_MAX_BRIGHTNESS)
-        self.min_kelvin: int = entry.data.get(CONF_MIN_COLOR_TEMP, DEFAULT_MIN_COLOR_TEMP)
-        self.max_kelvin: int = entry.data.get(CONF_MAX_COLOR_TEMP, DEFAULT_MAX_COLOR_TEMP)
-        self.interval: int = entry.data.get(CONF_INTERVAL, DEFAULT_INTERVAL)
-        self.transition: float = float(entry.data.get(CONF_TRANSITION, DEFAULT_TRANSITION))
-        self.sunrise_offset: int = entry.data.get(CONF_SUNRISE_OFFSET, DEFAULT_SUNRISE_OFFSET)
-        self.sunset_offset: int = entry.data.get(CONF_SUNSET_OFFSET, DEFAULT_SUNSET_OFFSET)
-        self.adapt_only_on_turn_on: bool = entry.data.get(CONF_ADAPT_ONLY_ON_BARE_TURN_ON, DEFAULT_ADAPT_ONLY_ON_BARE_TURN_ON)
-        self.evening_max_brightness: int = entry.data.get(CONF_EVENING_MAX_BRIGHTNESS, DEFAULT_EVENING_MAX_BRIGHTNESS)
+        self.name: str = config.get(CONF_NAME, "Adaptive Lighting")
+        lights_raw = config.get(CONF_LIGHTS, [])
+        self.lights: List[str] = [lights_raw] if isinstance(lights_raw, str) else list(lights_raw or [])
+        self.calc_mode: str = config.get(CONF_CALC_MODE, DEFAULT_CALC_MODE)
+        self.color_mode: str = config.get(CONF_COLOR_MODE, DEFAULT_COLOR_MODE)
+        self.min_brightness: int = config.get(CONF_MIN_BRIGHTNESS, DEFAULT_MIN_BRIGHTNESS)
+        self.max_brightness: int = config.get(CONF_MAX_BRIGHTNESS, DEFAULT_MAX_BRIGHTNESS)
+        self.min_kelvin: int = config.get(CONF_MIN_COLOR_TEMP, DEFAULT_MIN_COLOR_TEMP)
+        self.max_kelvin: int = config.get(CONF_MAX_COLOR_TEMP, DEFAULT_MAX_COLOR_TEMP)
+        self.interval: int = config.get(CONF_INTERVAL, DEFAULT_INTERVAL)
+        self.transition: float = float(config.get(CONF_TRANSITION, DEFAULT_TRANSITION))
+        self.sunrise_offset: int = config.get(CONF_SUNRISE_OFFSET, DEFAULT_SUNRISE_OFFSET)
+        self.sunset_offset: int = config.get(CONF_SUNSET_OFFSET, DEFAULT_SUNSET_OFFSET)
+        self.adapt_only_on_turn_on: bool = config.get(CONF_ADAPT_ONLY_ON_BARE_TURN_ON, DEFAULT_ADAPT_ONLY_ON_BARE_TURN_ON)
+        self.evening_max_brightness: int = config.get(CONF_EVENING_MAX_BRIGHTNESS, DEFAULT_EVENING_MAX_BRIGHTNESS)
         self._already_adapted_lights: set[str] = set()
 
         # Toggles
         self.adaptation_enabled: bool = True
-        self.adapt_brightness_enabled: bool = entry.data.get(CONF_INITIAL_ADAPT_BRIGHTNESS, DEFAULT_INITIAL_ADAPT_BRIGHTNESS)
-        self.adapt_color_enabled: bool = entry.data.get(CONF_INITIAL_ADAPT_COLOR, DEFAULT_INITIAL_ADAPT_COLOR)
+        self.adapt_brightness_enabled: bool = config.get(CONF_INITIAL_ADAPT_BRIGHTNESS, DEFAULT_INITIAL_ADAPT_BRIGHTNESS)
+        self.adapt_color_enabled: bool = config.get(CONF_INITIAL_ADAPT_COLOR, DEFAULT_INITIAL_ADAPT_COLOR)
 
         # State outputs
         self.target_brightness: int = 100
@@ -166,30 +169,33 @@ class AdaptiveCoordinator:
             self.max_brightness,
             self.min_kelvin,
             self.max_kelvin,
-            min_sunrise=entry.data.get(CONF_MIN_SUNRISE_TIME, DEFAULT_MIN_SUNRISE),
-            max_sunrise=entry.data.get(CONF_MAX_SUNRISE_TIME, DEFAULT_MAX_SUNRISE),
-            min_sunset=entry.data.get(CONF_MIN_SUNSET_TIME, DEFAULT_MIN_SUNSET),
-            max_sunset=entry.data.get(CONF_MAX_SUNSET_TIME, DEFAULT_MAX_SUNSET),
+            min_sunrise=config.get(CONF_MIN_SUNRISE_TIME, DEFAULT_MIN_SUNRISE),
+            max_sunrise=config.get(CONF_MAX_SUNRISE_TIME, DEFAULT_MAX_SUNRISE),
+            min_sunset=config.get(CONF_MIN_SUNSET_TIME, DEFAULT_MIN_SUNSET),
+            max_sunset=config.get(CONF_MAX_SUNSET_TIME, DEFAULT_MAX_SUNSET),
             sunrise_offset=self.sunrise_offset,
             sunset_offset=self.sunset_offset,
         )
-        self.curve_calc = CurveCalculator(entry.data.get(CONF_CURVE_POINTS))
+        self.curve_calc = CurveCalculator(config.get(CONF_CURVE_POINTS))
 
-        presence_enabled = entry.data.get(CONF_PRESENCE_ENABLE, False)
-        presence_sensors = entry.data.get(CONF_PRESENCE_SENSORS, [])
+        presence_enabled = config.get(CONF_PRESENCE_ENABLE, False)
+        presence_sensors_raw = config.get(CONF_PRESENCE_SENSORS, [])
+        presence_sensors: List[str] = [presence_sensors_raw] if isinstance(presence_sensors_raw, str) else list(presence_sensors_raw or [])
         self.presence_mgr: Optional[PresenceManager] = None
         if presence_enabled and presence_sensors:
             self.presence_mgr = PresenceManager(
                 hass,
                 sensors=presence_sensors,
-                dim_timeout=entry.data.get(CONF_DIM_TIMEOUT, DEFAULT_DIM_TIMEOUT),
-                off_timeout=entry.data.get(CONF_OFF_TIMEOUT, DEFAULT_OFF_TIMEOUT),
-                grace_period=entry.data.get(CONF_GRACE_PERIOD, DEFAULT_GRACE_PERIOD),
-                dim_brightness=entry.data.get(CONF_DIM_BRIGHTNESS, DEFAULT_DIM_BRIGHTNESS),
-                auto_turn_on=entry.data.get(CONF_AUTO_TURN_ON, DEFAULT_AUTO_TURN_ON),
-                turn_on_lux_threshold=entry.data.get(CONF_TURN_ON_LUX_THRESHOLD, DEFAULT_TURN_ON_LUX_THRESHOLD),
-                motion_debounce=entry.data.get(CONF_MOTION_DEBOUNCE, DEFAULT_MOTION_DEBOUNCE),
-                sleep_motion_behavior=entry.data.get(CONF_SLEEP_MOTION_BEHAVIOR, DEFAULT_SLEEP_MOTION_BEHAVIOR),
+                dim_timeout=config.get(CONF_DIM_TIMEOUT, DEFAULT_DIM_TIMEOUT),
+                off_timeout=config.get(CONF_OFF_TIMEOUT, DEFAULT_OFF_TIMEOUT),
+                grace_period=config.get(CONF_GRACE_PERIOD, DEFAULT_GRACE_PERIOD),
+                dim_brightness=config.get(CONF_DIM_BRIGHTNESS, DEFAULT_DIM_BRIGHTNESS),
+                auto_turn_on=config.get(CONF_AUTO_TURN_ON, DEFAULT_AUTO_TURN_ON),
+                turn_on_lux_threshold=config.get(CONF_TURN_ON_LUX_THRESHOLD, DEFAULT_TURN_ON_LUX_THRESHOLD),
+                motion_debounce=config.get(CONF_MOTION_DEBOUNCE, DEFAULT_MOTION_DEBOUNCE),
+                sleep_motion_behavior=config.get(CONF_SLEEP_MOTION_BEHAVIOR, DEFAULT_SLEEP_MOTION_BEHAVIOR),
+                lux_sensor=config.get(CONF_LUX_SENSOR),
+                are_lights_off_callback=self._are_all_lights_off,
                 is_sleep_callback=lambda: self.profile_mgr.is_sleep(),
                 on_dim_callback=self._on_presence_dim,
                 on_off_callback=self._on_presence_off,
@@ -199,37 +205,38 @@ class AdaptiveCoordinator:
 
         self.weather_engine = WeatherEngine(
             hass,
-            weather_entity=entry.data.get(CONF_WEATHER_ENTITY),
-            lux_sensor=entry.data.get(CONF_LUX_SENSOR),
-            cloud_boost_pct=entry.data.get(CONF_CLOUD_BOOST_PCT, 25),
-            cloud_boost_kelvin=entry.data.get(CONF_CLOUD_BOOST_KELVIN, 600),
-            prioritize_lux=entry.data.get(CONF_PRIORITIZE_LUX, True),
+            weather_entity=config.get(CONF_WEATHER_ENTITY),
+            lux_sensor=config.get(CONF_LUX_SENSOR),
+            cloud_boost_pct=config.get(CONF_CLOUD_BOOST_PCT, 25),
+            cloud_boost_kelvin=config.get(CONF_CLOUD_BOOST_KELVIN, 600),
+            prioritize_lux=config.get(CONF_PRIORITIZE_LUX, True),
             get_presence_lux_callback=lambda: self.presence_mgr.get_ambient_lux() if self.presence_mgr else None,
         )
 
         self.profile_mgr = ProfileManager(
-            sleep_brightness=entry.data.get(CONF_SLEEP_BRIGHTNESS, DEFAULT_SLEEP_BRIGHTNESS),
-            sleep_color_temp=entry.data.get(CONF_SLEEP_COLOR_TEMP, DEFAULT_SLEEP_COLOR_TEMP),
-            sleep_rgb=entry.data.get(CONF_SLEEP_RGB, DEFAULT_SLEEP_RGB),
-            sleep_schedule_enable=entry.data.get(CONF_SLEEP_SCHEDULE_ENABLE, DEFAULT_SLEEP_SCHEDULE_ENABLE),
-            sleep_start_time=entry.data.get(CONF_SLEEP_START_TIME, DEFAULT_SLEEP_START_TIME),
-            sleep_end_time=entry.data.get(CONF_SLEEP_END_TIME, DEFAULT_SLEEP_END_TIME),
-            sleep_weekend_enable=entry.data.get(CONF_SLEEP_WEEKEND_ENABLE, DEFAULT_SLEEP_WEEKEND_ENABLE),
-            sleep_weekend_start_time=entry.data.get(CONF_SLEEP_WEEKEND_START_TIME, DEFAULT_SLEEP_WEEKEND_START_TIME),
-            sleep_weekend_end_time=entry.data.get(CONF_SLEEP_WEEKEND_END_TIME, DEFAULT_SLEEP_WEEKEND_END_TIME),
+            sleep_brightness=config.get(CONF_SLEEP_BRIGHTNESS, DEFAULT_SLEEP_BRIGHTNESS),
+            sleep_color_temp=config.get(CONF_SLEEP_COLOR_TEMP, DEFAULT_SLEEP_COLOR_TEMP),
+            sleep_rgb=config.get(CONF_SLEEP_RGB, DEFAULT_SLEEP_RGB),
+            sleep_schedule_enable=config.get(CONF_SLEEP_SCHEDULE_ENABLE, DEFAULT_SLEEP_SCHEDULE_ENABLE),
+            sleep_start_time=config.get(CONF_SLEEP_START_TIME, DEFAULT_SLEEP_START_TIME),
+            sleep_end_time=config.get(CONF_SLEEP_END_TIME, DEFAULT_SLEEP_END_TIME),
+            sleep_weekend_enable=config.get(CONF_SLEEP_WEEKEND_ENABLE, DEFAULT_SLEEP_WEEKEND_ENABLE),
+            sleep_weekend_start_time=config.get(CONF_SLEEP_WEEKEND_START_TIME, DEFAULT_SLEEP_WEEKEND_START_TIME),
+            sleep_weekend_end_time=config.get(CONF_SLEEP_WEEKEND_END_TIME, DEFAULT_SLEEP_WEEKEND_END_TIME),
         )
-        self.sleep_entity: Optional[str] = entry.data.get(CONF_SLEEP_ENTITY)
+        self.sleep_entity: Optional[str] = config.get(CONF_SLEEP_ENTITY)
         self._unsub_sleep_entity: Optional[Callable[[], None]] = None
 
         self.override_mgr = OverrideManager(
             hass,
             lights=self.lights,
-            timeout_minutes=entry.data.get(CONF_OVERRIDE_TIMEOUT, DEFAULT_OVERRIDE_TIMEOUT),
+            timeout_minutes=config.get(CONF_OVERRIDE_TIMEOUT, DEFAULT_OVERRIDE_TIMEOUT),
             on_override_reset_callback=self._on_override_reset,
             on_manual_change_callback=self._on_manual_change,
+            on_lights_off_callback=self._handle_light_turned_off,
         )
 
-        anti_glare_on = entry.data.get(CONF_ANTI_GLARE, True)
+        anti_glare_on = config.get(CONF_ANTI_GLARE, True)
         self.anti_glare = AntiGlareInterceptor(
             hass,
             target_lights=self.lights,
@@ -498,20 +505,44 @@ class AdaptiveCoordinator:
                     blocking=False,
                 )
 
+    def _are_all_lights_off(self) -> bool:
+        """Check if all managed lights are off."""
+        if not self.lights:
+            return True
+        for light_id in self.lights:
+            st = self.hass.states.get(light_id)
+            if st and st.state == "on":
+                return False
+        return True
+
+    def _handle_light_turned_off(self, entity_id: str) -> None:
+        """Handle when a light is turned off."""
+        self._already_adapted_lights.discard(entity_id)
+        if self._are_all_lights_off():
+            if self.presence_mgr:
+                self.presence_mgr.on_lights_turned_off()
+            self._notify_listeners()
+
     async def _on_presence_restore_manual(self, saved_states: Dict[str, Dict[str, Any]]) -> None:
         """Restore manual adjustments when reoccupied within grace period."""
-        for light_id, attrs in saved_states.items():
-            payload: Dict[str, Any] = {"entity_id": light_id, "transition": 1.0}
-            if attrs.get("brightness") is not None:
-                payload["brightness"] = attrs["brightness"]
-            if attrs.get("color_temp_kelvin") is not None:
-                payload["color_temp_kelvin"] = attrs["color_temp_kelvin"]
-            elif attrs.get("rgb_color") is not None:
-                payload["rgb_color"] = attrs["rgb_color"]
+        self._calculate_target_values()
+        for light_id in self.lights:
+            if light_id in saved_states:
+                attrs = saved_states[light_id]
+                payload: Dict[str, Any] = {"entity_id": light_id, "transition": 1.0}
+                if attrs.get("brightness") is not None:
+                    payload["brightness"] = attrs["brightness"]
+                if attrs.get("color_temp_kelvin") is not None:
+                    payload["color_temp_kelvin"] = attrs["color_temp_kelvin"]
+                elif attrs.get("rgb_color") is not None:
+                    payload["rgb_color"] = attrs["rgb_color"]
 
-            self.override_mgr.record_sent_state(light_id, payload)
-            self.override_mgr.set_manual_override(light_id, attrs)
-            await self.hass.services.async_call(LIGHT_DOMAIN, "turn_on", payload, blocking=False)
+                self.override_mgr.record_sent_state(light_id, payload)
+                self.override_mgr.set_manual_override(light_id, attrs)
+                await self.hass.services.async_call(LIGHT_DOMAIN, "turn_on", payload, blocking=False)
+            else:
+                await self._async_apply_to_light(light_id, custom_transition=1.0, allow_turn_on=True)
+            self._already_adapted_lights.add(light_id)
 
     async def _on_presence_turn_on_adaptive(self) -> None:
         """Turn on lights with fresh adaptive settings when room reoccupied."""
