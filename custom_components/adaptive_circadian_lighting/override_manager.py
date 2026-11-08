@@ -4,7 +4,7 @@ from __future__ import annotations
 import asyncio
 from datetime import datetime, timezone
 import logging
-from typing import Any, Callable, Dict, Optional, Set
+from typing import Any, Callable, Dict, List, Optional
 
 from homeassistant.core import Event, HomeAssistant
 from homeassistant.helpers.event import async_track_state_change_event
@@ -12,6 +12,30 @@ from homeassistant.helpers.event import async_track_state_change_event
 from .const import DEFAULT_OVERRIDE_TIMEOUT
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def _normalize_entity_list(raw_entities: Any) -> List[str]:
+    """Normalize a string, list, or comma-separated string of entity IDs into a clean list."""
+    if not raw_entities:
+        return []
+    result: List[str] = []
+    if isinstance(raw_entities, str):
+        candidates = raw_entities.split(",")
+    elif isinstance(raw_entities, (list, tuple, set)):
+        candidates = []
+        for item in raw_entities:
+            if isinstance(item, str):
+                candidates.extend(item.split(","))
+            elif item:
+                candidates.append(str(item))
+    else:
+        candidates = [str(raw_entities)]
+
+    for c in candidates:
+        cleaned = c.strip().strip("'\"[] ")
+        if cleaned:
+            result.append(cleaned)
+    return result
 
 
 class OverrideManager:
@@ -28,7 +52,7 @@ class OverrideManager:
         on_lights_on_callback: Optional[Callable[[str], Any]] = None,
     ) -> None:
         self.hass = hass
-        self.lights = lights
+        self.lights = _normalize_entity_list(lights)
         self.timeout_minutes = timeout_minutes
         self.on_override_reset_callback = on_override_reset_callback
         self.on_manual_change_callback = on_manual_change_callback
@@ -63,10 +87,29 @@ class OverrideManager:
 
     def record_sent_state(self, entity_id: str, state_data: Dict[str, Any]) -> None:
         """Record that our coordinator made this change to prevent false manual detection."""
+        brightness_pct = state_data.get("brightness_pct")
+        brightness = state_data.get("brightness")
+        if brightness is None and brightness_pct is not None:
+            brightness = round(brightness_pct * 255 / 100)
+        elif brightness_pct is None and brightness is not None:
+            brightness_pct = round(brightness * 100 / 255)
+
+        kelvin = state_data.get("color_temp_kelvin")
+        mireds = state_data.get("color_temp")
+        if kelvin is None and mireds is not None and mireds > 0:
+            kelvin = round(1000000 / mireds)
+        elif mireds is None and kelvin is not None and kelvin > 0:
+            mireds = round(1000000 / kelvin)
+
+        transition = float(state_data.get("transition", 0.0) or 0.0)
+
         self._last_sent_states[entity_id] = {
-            "brightness_pct": state_data.get("brightness_pct"),
-            "color_temp_kelvin": state_data.get("color_temp_kelvin"),
+            "brightness_pct": brightness_pct,
+            "brightness": brightness,
+            "color_temp_kelvin": kelvin,
+            "color_temp": mireds,
             "rgb_color": state_data.get("rgb_color"),
+            "transition": transition,
             "timestamp": datetime.now(timezone.utc),
         }
 
@@ -128,9 +171,16 @@ class OverrideManager:
 
     def _handle_light_change(self, event: Event) -> None:
         """Evaluate whether a state change was manual or automated."""
-        entity_id = event.data.get("entity_id")
-        old_state = event.data.get("old_state")
-        new_state = event.data.get("new_state")
+        if hasattr(event, "data"):
+            entity_id = event.data.get("entity_id")
+            old_state = event.data.get("old_state")
+            new_state = event.data.get("new_state")
+        elif isinstance(event, dict):
+            entity_id = event.get("entity_id")
+            old_state = event.get("old_state")
+            new_state = event.get("new_state")
+        else:
+            return
 
         if not new_state or new_state.state != "on":
             # If light turned off, clear override silently so it re-adapts next time it turns on
@@ -146,26 +196,76 @@ class OverrideManager:
                 self.on_lights_on_callback(entity_id)
             return
 
-        # Compare new state against last sent coordinator state
+        # 1. Compare new state against last sent coordinator state
         last_sent = self._last_sent_states.get(entity_id)
         if last_sent:
             time_diff = (datetime.now(timezone.utc) - last_sent["timestamp"]).total_seconds()
-            if time_diff < 4.0:
-                # Within recent command window, ignore to prevent self-triggering
+            transition = float(last_sent.get("transition", 0.0) or 0.0)
+
+            # During coordinator transition (plus safety buffer for HA / Zigbee latency), ignore updates
+            transition_window = max(5.0, transition + 3.0)
+            if time_diff < transition_window:
                 return
 
-        new_attrs = new_state.attributes
-        old_attrs = old_state.attributes if old_state else {}
+        new_attrs = getattr(new_state, "attributes", {}) or {}
+        old_attrs = getattr(old_state, "attributes", {}) or {}
 
-        # Check if brightness, color temp or rgb actually changed
+        # 2. Check if the reported state matches what coordinator last commanded
+        if last_sent:
+            matches_sent = True
+
+            # Brightness check (handling 0-255 vs 0-100% scaling and rounding)
+            expected_b = last_sent.get("brightness")
+            if expected_b is not None and "brightness" in new_attrs:
+                actual_b = new_attrs["brightness"]
+                # 8 units out of 255 is ~3% tolerance for dimmer rounding/quantization
+                if abs(actual_b - expected_b) > 8:
+                    matches_sent = False
+
+            # Color temperature check (handling Kelvin vs Mireds conversion rounding)
+            expected_k = last_sent.get("color_temp_kelvin")
+            expected_m = last_sent.get("color_temp")
+            if expected_k is not None:
+                actual_k = new_attrs.get("color_temp_kelvin")
+                actual_m = new_attrs.get("color_temp")
+                ct_ok = False
+                if actual_k is not None:
+                    # Zigbee mired rounding error at high Kelvin can be up to 50-60K
+                    if abs(actual_k - expected_k) <= 60:
+                        ct_ok = True
+                    elif expected_m and actual_k > 0:
+                        act_m = round(1000000 / actual_k)
+                        if abs(act_m - expected_m) <= 4:
+                            ct_ok = True
+                elif actual_m is not None and expected_m is not None:
+                    if abs(actual_m - expected_m) <= 4:
+                        ct_ok = True
+                if not ct_ok:
+                    matches_sent = False
+
+            # RGB color check
+            expected_rgb = last_sent.get("rgb_color")
+            if expected_rgb is not None and "rgb_color" in new_attrs:
+                actual_rgb = new_attrs["rgb_color"]
+                if not (actual_rgb and len(actual_rgb) >= 3 and len(expected_rgb) >= 3 and
+                        all(abs(a - b) <= 15 for a, b in zip(actual_rgb[:3], expected_rgb[:3]))):
+                    matches_sent = False
+
+            if matches_sent:
+                # The state matches coordinator command; NOT a manual override!
+                return
+
+        # 3. Detect actual manual changes
         b_changed = (
             "brightness" in new_attrs
-            and abs(new_attrs.get("brightness", 0) - old_attrs.get("brightness", 0)) > 6
+            and abs(new_attrs.get("brightness", 0) - old_attrs.get("brightness", 0)) > 8
         )
-        ct_changed = (
-            "color_temp_kelvin" in new_attrs
-            and abs(new_attrs.get("color_temp_kelvin", 0) - old_attrs.get("color_temp_kelvin", 0)) > 50
-        )
+        ct_changed = False
+        if "color_temp_kelvin" in new_attrs:
+            ct_changed = abs(new_attrs.get("color_temp_kelvin", 0) - old_attrs.get("color_temp_kelvin", 0)) > 60
+        elif "color_temp" in new_attrs:
+            ct_changed = abs(new_attrs.get("color_temp", 0) - old_attrs.get("color_temp", 0)) > 4
+
         rgb_changed = (
             "rgb_color" in new_attrs
             and new_attrs.get("rgb_color") != old_attrs.get("rgb_color")
@@ -173,3 +273,4 @@ class OverrideManager:
 
         if b_changed or ct_changed or rgb_changed:
             self.set_manual_override(entity_id, new_attrs)
+

@@ -116,6 +116,30 @@ from .weather_engine import WeatherEngine
 _LOGGER = logging.getLogger(__name__)
 
 
+def _normalize_entity_list(raw_entities: Any) -> List[str]:
+    """Normalize a string, list, or comma-separated string of entity IDs into a clean list."""
+    if not raw_entities:
+        return []
+    result: List[str] = []
+    if isinstance(raw_entities, str):
+        candidates = raw_entities.split(",")
+    elif isinstance(raw_entities, (list, tuple, set)):
+        candidates = []
+        for item in raw_entities:
+            if isinstance(item, str):
+                candidates.extend(item.split(","))
+            elif item:
+                candidates.append(str(item))
+    else:
+        candidates = [str(raw_entities)]
+
+    for c in candidates:
+        cleaned = c.strip().strip("'\"[] ")
+        if cleaned:
+            result.append(cleaned)
+    return result
+
+
 class AdaptiveCoordinator:
     """Coordinates calculation, presence, weather, profiles, and light adjustments."""
 
@@ -128,7 +152,7 @@ class AdaptiveCoordinator:
         # Config properties
         self.name: str = config.get(CONF_NAME, "Adaptive Lighting")
         lights_raw = config.get(CONF_LIGHTS, [])
-        self.lights: List[str] = [lights_raw] if isinstance(lights_raw, str) else list(lights_raw or [])
+        self.lights: List[str] = _normalize_entity_list(lights_raw)
         self.calc_mode: str = config.get(CONF_CALC_MODE, DEFAULT_CALC_MODE)
         self.color_mode: str = config.get(CONF_COLOR_MODE, DEFAULT_COLOR_MODE)
         self.min_brightness: int = config.get(CONF_MIN_BRIGHTNESS, DEFAULT_MIN_BRIGHTNESS)
@@ -180,8 +204,7 @@ class AdaptiveCoordinator:
 
         presence_enabled = config.get(CONF_PRESENCE_ENABLE, False)
         presence_sensors_raw = config.get(CONF_PRESENCE_SENSORS, [])
-        presence_sensors: List[str] = [presence_sensors_raw] if isinstance(presence_sensors_raw, str) else list(presence_sensors_raw or [])
-        presence_sensors = [s.strip() for s in presence_sensors if s and str(s).strip()]
+        presence_sensors: List[str] = _normalize_entity_list(presence_sensors_raw)
         self.presence_mgr: Optional[PresenceManager] = None
         if (presence_enabled or bool(presence_sensors)) and presence_sensors:
             self.presence_mgr = PresenceManager(
@@ -439,6 +462,15 @@ class AdaptiveCoordinator:
         """Send adapted brightness and color to a single light."""
         st = self.hass.states.get(light_id)
         if not st:
+            if allow_turn_on:
+                payload = {
+                    "entity_id": light_id,
+                    "brightness_pct": self.target_brightness,
+                }
+                self.override_mgr.record_sent_state(light_id, payload)
+                await self.hass.services.async_call(
+                    LIGHT_DOMAIN, "turn_on", payload, blocking=False
+                )
             return
 
         # Never send turn_on commands to lights that are currently off unless explicitly permitted
@@ -553,12 +585,18 @@ class AdaptiveCoordinator:
             if light_id in saved_states:
                 attrs = saved_states[light_id]
                 payload: Dict[str, Any] = {"entity_id": light_id, "transition": 1.0}
-                if attrs.get("brightness") is not None:
-                    payload["brightness"] = attrs["brightness"]
+                b = attrs.get("brightness")
+                if b is not None and b > 0:
+                    payload["brightness"] = b
+                else:
+                    payload["brightness_pct"] = self.target_brightness
+
                 if attrs.get("color_temp_kelvin") is not None:
                     payload["color_temp_kelvin"] = attrs["color_temp_kelvin"]
                 elif attrs.get("rgb_color") is not None:
                     payload["rgb_color"] = attrs["rgb_color"]
+                else:
+                    payload["color_temp_kelvin"] = self.target_kelvin
 
                 self.override_mgr.record_sent_state(light_id, payload)
                 self.override_mgr.set_manual_override(light_id, attrs)
@@ -566,6 +604,7 @@ class AdaptiveCoordinator:
             else:
                 await self._async_apply_to_light(light_id, custom_transition=1.0, allow_turn_on=True)
             self._already_adapted_lights.add(light_id)
+        self._notify_listeners()
 
     async def _on_presence_turn_on_adaptive(self) -> None:
         """Turn on lights with fresh adaptive settings when room reoccupied."""

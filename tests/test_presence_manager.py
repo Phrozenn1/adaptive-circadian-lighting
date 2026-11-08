@@ -362,6 +362,53 @@ class TestPresenceManager(unittest.TestCase):
         pm._set_room_state(STATE_OFF)
         self.assertEqual(state_changes, [STATE_OCCUPIED, STATE_DIMMED, STATE_OFF])
 
+    def test_ikea_parasoll_contact_sensor(self):
+        pm = PresenceManager(self.hass, sensors=["binary_sensor.parasoll_door"])
+        # Parasoll opened: contact attribute is False (contact broken)
+        door_open_state = MockState("off", {"contact": False})
+        self.assertTrue(pm.is_sensor_triggered(door_open_state))
+
+        # Parasoll closed: contact attribute is True
+        door_closed_state = MockState("off", {"contact": True})
+        self.assertFalse(pm.is_sensor_triggered(door_closed_state))
+
+    def test_ikea_vallhorn_and_tradfri_sensors(self):
+        pm = PresenceManager(self.hass, sensors=["binary_sensor.vallhorn", "binary_sensor.tradfri"])
+        # Vallhorn active motion
+        self.assertTrue(pm.is_sensor_triggered(MockState("on", {"occupancy": True})))
+        # Tradfri active motion
+        self.assertTrue(pm.is_sensor_triggered(MockState("on", {"motion": True})))
+        # Cleared states
+        self.assertFalse(pm.is_sensor_triggered(MockState("off", {"occupancy": False})))
+
+    def test_aqara_mmwave_extended_states(self):
+        pm = PresenceManager(self.hass, sensors=["sensor.aqara_fp2"])
+        extended_states = ["exist", "existence", "in_place", "approaching", "enter_left", "enter_right", "motion_detected"]
+        for st in extended_states:
+            with self.subTest(state=st):
+                self.assertTrue(pm.is_sensor_triggered(MockState(st)))
+
+    def test_sensor_normalization(self):
+        pm = PresenceManager(self.hass, sensors="binary_sensor.kitchen_fp2, binary_sensor.ikea_motion")
+        self.assertEqual(pm.sensors, ["binary_sensor.kitchen_fp2", "binary_sensor.ikea_motion"])
+
+    def test_motion_event_triggers_immediate_callback(self):
+        callback_called = False
+        def on_change(state):
+            nonlocal callback_called
+            callback_called = True
+
+        pm = PresenceManager(
+            self.hass,
+            sensors=["binary_sensor.kitchen_fp2"],
+            auto_turn_on=True,
+            on_state_change_callback=on_change,
+        )
+        event = MagicMock()
+        event.data = {"entity_id": "binary_sensor.kitchen_fp2", "new_state": MockState("on")}
+        pm._handle_motion_event(event)
+
+        self.assertTrue(callback_called)
 
 
 if __name__ == "__main__":

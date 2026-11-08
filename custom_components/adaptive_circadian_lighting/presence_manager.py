@@ -31,6 +31,8 @@ STATE_OFF = "off"
 POSITIVE_STATES = {
     "on",
     "open",
+    "opened",
+    "opening",
     "detected",
     "active",
     "occupied",
@@ -53,6 +55,9 @@ POSITIVE_STATES = {
     "home",
     "enter",
     "entered",
+    "enter_left",
+    "enter_right",
+    "approach",
     "approaching",
     "someone",
     "somebody",
@@ -60,6 +65,13 @@ POSITIVE_STATES = {
     "fall_detected",
     "trigger",
     "triggered",
+    "exist",
+    "existence",
+    "in_place",
+    "in_room",
+    "motion_detected",
+    "presence_detected",
+    "unlocked",
 }
 
 NEGATIVE_STATES = {
@@ -105,12 +117,39 @@ OCCUPANCY_ATTRIBUTES = (
     "presence_detected",
     "people_count",
     "person_count",
+    "exist",
+    "existence",
+    "in_place",
 )
 LUX_ATTRIBUTES = ("illuminance", "lux", "illuminance_lux", "light_level")
 
 
+def _normalize_entity_list(raw_entities: Any) -> List[str]:
+    """Normalize a string, list, or comma-separated string of entity IDs into a clean list."""
+    if not raw_entities:
+        return []
+    result: List[str] = []
+    if isinstance(raw_entities, str):
+        candidates = raw_entities.split(",")
+    elif isinstance(raw_entities, (list, tuple, set)):
+        candidates = []
+        for item in raw_entities:
+            if isinstance(item, str):
+                candidates.extend(item.split(","))
+            elif item:
+                candidates.append(str(item))
+    else:
+        candidates = [str(raw_entities)]
+
+    for c in candidates:
+        cleaned = c.strip().strip("'\"[] ")
+        if cleaned:
+            result.append(cleaned)
+    return result
+
+
 class PresenceManager:
-    """Manages motion/presence sensors (optimized for Aqara FP1/FP2/P1), staged dimming, and manual override persistence."""
+    """Manages motion/presence sensors (optimized for Aqara FP1/FP2/P1 and IKEA Vallhorn/Parasoll/Tradfri), staged dimming, and manual override persistence."""
 
     def __init__(
         self,
@@ -134,8 +173,7 @@ class PresenceManager:
         on_state_change_callback: Optional[Callable[[str], Any]] = None,
     ) -> None:
         self.hass = hass
-        raw_sensors = [sensors] if isinstance(sensors, str) else list(sensors or [])
-        self.sensors = [s.strip() for s in raw_sensors if s and str(s).strip()]
+        self.sensors = _normalize_entity_list(sensors)
         self.dim_timeout = dim_timeout
         self.off_timeout = off_timeout
         self.grace_period = grace_period
@@ -167,14 +205,16 @@ class PresenceManager:
         self._unsub_trackers: List[CALLBACK_TYPE] = []
 
     def start_tracking(self) -> None:
-        """Start listening to presence/motion sensors."""
+        """Start listening to presence/motion sensors via real-time event tracking."""
         if not self.sensors:
             return
 
-        unsub = async_track_state_change_event(
-            self.hass, self.sensors, self._handle_motion_event
-        )
-        self._unsub_trackers.append(unsub)
+        # Register event tracker for all configured sensors so state transitions trigger immediately
+        for sensor_id in self.sensors:
+            unsub = async_track_state_change_event(
+                self.hass, sensor_id, self._handle_motion_event
+            )
+            self._unsub_trackers.append(unsub)
 
         # Evaluate initial state
         self._check_initial_sensor_state()
@@ -183,7 +223,10 @@ class PresenceManager:
         """Stop tracking and cancel active timers."""
         self._cancel_timers()
         for unsub in self._unsub_trackers:
-            unsub()
+            try:
+                unsub()
+            except Exception:
+                pass
         self._unsub_trackers.clear()
 
     def save_manual_state(self, entity_id: str, attributes: Dict[str, Any]) -> None:
@@ -247,6 +290,10 @@ class PresenceManager:
 
         # Check Aqara/mmWave specific attributes (FP2 zones, PIR motion flag, radar targets, etc.)
         attrs = getattr(state_obj, "attributes", {}) or {}
+        # Special check for contact sensors (e.g. IKEA Parasoll): contact=False means open/triggered
+        if "contact" in attrs and attrs.get("contact") is False:
+            return True
+
         for key in OCCUPANCY_ATTRIBUTES:
             if key not in attrs:
                 continue
@@ -342,15 +389,23 @@ class PresenceManager:
 
     def _handle_motion_event(self, event: Event) -> None:
         """Handle state change from an Aqara or standard motion/presence sensor."""
-        new_state = event.data.get("new_state")
+        if hasattr(event, "data"):
+            new_state = event.data.get("new_state")
+            entity_id = event.data.get("entity_id")
+        elif isinstance(event, dict):
+            new_state = event.get("new_state")
+            entity_id = event.get("entity_id")
+        else:
+            return
+
         if not new_state:
             return
 
         is_on = self.is_sensor_triggered(new_state)
         _LOGGER.debug(
-            "PresenceManager: sensor %s (Aqara/Presence) state=%s (is_on=%s)",
-            event.data.get("entity_id"),
-            new_state.state,
+            "PresenceManager: sensor %s state=%s (is_on=%s)",
+            entity_id,
+            getattr(new_state, "state", None),
             is_on,
         )
 
@@ -363,7 +418,7 @@ class PresenceManager:
             was_empty = (self.room_state in (STATE_DIMMED, STATE_OFF)) or lights_off
             self._set_room_state(STATE_OCCUPIED)
 
-            if was_empty:
+            if was_empty or (lights_off and self.auto_turn_on):
                 self._handle_reoccupancy(now)
         else:
             # When sensor turns off, check if all sensors are now clear
@@ -373,6 +428,10 @@ class PresenceManager:
                 else:
                     self._set_room_state(STATE_OFF)
                     self._cancel_timers()
+
+        # Always notify callback on every sensor state transition for real-time updates
+        if self.on_state_change_callback:
+            self._dispatch_callback(self.on_state_change_callback, self.room_state)
 
     def _handle_reoccupancy(self, now: datetime) -> None:
         """Handle person returning to the room."""
@@ -411,7 +470,19 @@ class PresenceManager:
                 )
                 return
 
+        # Validate saved manual states: ensure valid brightness > 0 or valid color
+        has_valid_manual = False
         if within_grace and self.has_manual_state():
+            for ent_id, st in self.saved_manual_states.items():
+                b = st.get("brightness")
+                if b is not None and b > 0:
+                    has_valid_manual = True
+                    break
+                elif st.get("color_temp_kelvin") is not None or st.get("rgb_color") is not None:
+                    has_valid_manual = True
+                    break
+
+        if within_grace and has_valid_manual:
             _LOGGER.info(
                 "PresenceManager: room reoccupied within grace period. Restoring manual kitchen/room settings!"
             )
