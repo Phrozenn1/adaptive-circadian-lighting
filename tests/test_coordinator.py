@@ -207,15 +207,48 @@ class TestCoordinatorPresence(unittest.IsolatedAsyncioTestCase):
         coord = AdaptiveCoordinator(self.hass, entry)
         self.assertEqual(coord.presence_sensors, ["binary_sensor.kitchen_motion", "binary_sensor.ikea_motion"])
 
-    def test_anti_glare_payload_records_sent_state(self):
+    def test_handle_light_turned_on_adapts_immediately(self):
         entry = DummyConfigEntry(data={
             CONF_LIGHTS: ["light.living_room"],
         })
         coord = AdaptiveCoordinator(self.hass, entry)
         coord.override_mgr = MagicMock()
+        coord.override_mgr.is_overridden.return_value = False
+        coord._async_apply_to_light = MagicMock()
 
-        payload = coord._get_anti_glare_payload("light.living_room")
-        coord.override_mgr.record_sent_state.assert_called_once_with("light.living_room", payload)
+        coord._handle_light_turned_on("light.living_room")
+
+        self.assertIn("light.living_room", coord._already_adapted_lights)
+        coord._async_apply_to_light.assert_called_once_with(
+            "light.living_room", custom_transition=0.5, allow_turn_on=False
+        )
+        self.hass.async_create_task.assert_called_once()
+
+    def test_handle_light_turned_on_skips_when_overridden(self):
+        entry = DummyConfigEntry(data={
+            CONF_LIGHTS: ["light.living_room"],
+        })
+        coord = AdaptiveCoordinator(self.hass, entry)
+        coord.override_mgr = MagicMock()
+        coord.override_mgr.is_overridden.return_value = True
+        coord._async_apply_to_light = MagicMock()
+
+        coord._handle_light_turned_on("light.living_room")
+
+        coord._async_apply_to_light.assert_not_called()
+
+    def test_handle_light_turned_on_skips_when_adaptation_disabled(self):
+        entry = DummyConfigEntry(data={
+            CONF_LIGHTS: ["light.living_room"],
+        })
+        coord = AdaptiveCoordinator(self.hass, entry)
+        coord.adaptation_enabled = False
+        coord.override_mgr = MagicMock()
+        coord._async_apply_to_light = MagicMock()
+
+        coord._handle_light_turned_on("light.living_room")
+
+        coord._async_apply_to_light.assert_not_called()
 
     async def test_presence_restore_manual_dimmable_only_light(self):
         entry = DummyConfigEntry(data={

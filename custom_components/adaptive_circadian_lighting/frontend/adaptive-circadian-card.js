@@ -112,6 +112,16 @@ class AdaptiveCircadianCard extends HTMLElement {
     return I18N[lang] || I18N.en;
   }
 
+  _escapeHtml(str) {
+    if (str === null || str === undefined) return "";
+    return String(str)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+
   _kelvinToRgb(k) {
     const temp = Math.max(1000, Math.min(40000, k || 4000)) / 100.0;
     let r, g, b;
@@ -400,7 +410,7 @@ class AdaptiveCircadianCard extends HTMLElement {
         <div class="header">
           <div class="title">
             <ha-icon icon="mdi:theme-light-dark"></ha-icon>
-            <span>${title}</span>
+            <span>${this._escapeHtml(title)}</span>
           </div>
           <ha-switch id="master-toggle" ?checked="${isMasterOn}"></ha-switch>
         </div>
@@ -408,21 +418,21 @@ class AdaptiveCircadianCard extends HTMLElement {
         <div class="badge-bar">
           <span class="badge highlight">
             <ha-icon icon="mdi:weather-partly-cloudy" style="--mdc-icon-size: 14px;"></ha-icon>
-            ${weatherBoost.replace('_', ' ')}
+            ${this._escapeHtml(weatherBoost.replace('_', ' '))}
           </span>
           <span class="badge">
             <ha-icon icon="mdi:motion-sensor" style="--mdc-icon-size: 14px;"></ha-icon>
-            ${presenceState}
+            ${this._escapeHtml(presenceState)}
           </span>
           ${overrideCount > 0 ? `
             <span class="badge alert" id="btn-override-badge">
               <ha-icon icon="mdi:hand-back-right-off" style="--mdc-icon-size: 14px;"></ha-icon>
-              ${overrideCount} ${t.overridden}
+              ${this._escapeHtml(overrideCount)} ${this._escapeHtml(t.overridden)}
             </span>
           ` : `
             <span class="badge">
               <ha-icon icon="mdi:check-circle-outline" style="--mdc-icon-size: 14px;"></ha-icon>
-              ${t.automatic}
+              ${this._escapeHtml(t.automatic)}
             </span>
           `}
         </div>
@@ -446,7 +456,7 @@ class AdaptiveCircadianCard extends HTMLElement {
 
             <line x1="${currentX}" y1="15" x2="${currentX}" y2="125" class="now-indicator" />
             <circle cx="${currentX}" cy="30" r="4" fill="#ff9800" />
-            <text x="${currentX}" y="12" fill="#ff9800" font-size="9" font-weight="bold" text-anchor="middle">${t.now}</text>
+            <text x="${currentX}" y="12" fill="#ff9800" font-size="9" font-weight="bold" text-anchor="middle">${this._escapeHtml(t.now)}</text>
           </svg>
           <div class="timeline-label">
             <span>00:00</span>
@@ -459,39 +469,39 @@ class AdaptiveCircadianCard extends HTMLElement {
 
         <div class="stats-grid">
           <div class="stat-box">
-            <div class="stat-label">${t.brightness}</div>
-            <div class="stat-value">${currentBrightness}%</div>
+            <div class="stat-label">${this._escapeHtml(t.brightness)}</div>
+            <div class="stat-value">${this._escapeHtml(currentBrightness)}%</div>
           </div>
           <div class="stat-box">
-            <div class="stat-label">${t.colorTemp}</div>
+            <div class="stat-label">${this._escapeHtml(t.colorTemp)}</div>
             <div class="stat-value color-val-box">
-              <span class="color-rgb-box" style="background: rgb(${rgbColor.join(',')});" title="RGB: ${rgbColor.join(', ')}"></span>
-              <span>${currentKelvin}K</span>
+              <span class="color-rgb-box" style="background: rgb(${rgbColor.map(v => parseInt(v, 10) || 0).join(',')});" title="RGB: ${rgbColor.map(v => parseInt(v, 10) || 0).join(', ')}"></span>
+              <span>${this._escapeHtml(currentKelvin)}K</span>
             </div>
-            <div class="rgb-subtext">RGB(${rgbColor.join(', ')})</div>
+            <div class="rgb-subtext">RGB(${rgbColor.map(v => parseInt(v, 10) || 0).join(', ')})</div>
           </div>
           <div class="stat-box">
-            <div class="stat-label">${t.phase}</div>
-            <div class="stat-value" style="font-size:0.95rem; text-transform:capitalize;">${currentPhase}</div>
+            <div class="stat-label">${this._escapeHtml(t.phase)}</div>
+            <div class="stat-value" style="font-size:0.95rem; text-transform:capitalize;">${this._escapeHtml(currentPhase)}</div>
           </div>
         </div>
 
         <div class="profiles">
           ${["normal", "sleep", "morning", "evening", "focus", "relax"].map(p => `
-            <button class="profile-btn ${currentProfile === p ? 'active' : ''}" data-profile="${p}">
-              ${t.profiles[p] || (p.charAt(0).toUpperCase() + p.slice(1))}
+            <button class="profile-btn ${currentProfile === p ? 'active' : ''}" data-profile="${this._escapeHtml(p)}">
+              ${this._escapeHtml(t.profiles[p] || (p.charAt(0).toUpperCase() + p.slice(1)))}
             </button>
           `).join("")}
         </div>
 
         <div class="actions-row">
           <div style="font-size: 0.75rem; opacity: 0.7;">
-            ${t.mode}: <b>${entities.calcModeSelect?.state || 'Hybrid'}</b> | ${t.color}: <b>${entities.colorModeSelect?.state || 'Auto'}</b>
+            ${this._escapeHtml(t.mode)}: <b>${this._escapeHtml(entities.calcModeSelect?.state || 'Hybrid')}</b> | ${this._escapeHtml(t.color)}: <b>${this._escapeHtml(entities.colorModeSelect?.state || 'Auto')}</b>
           </div>
           ${overrideCount > 0 ? `
             <button class="btn-reset" id="btn-reset-overrides">
               <ha-icon icon="mdi:refresh" style="--mdc-icon-size: 14px;"></ha-icon>
-              ${t.resetAuto}
+              ${this._escapeHtml(t.resetAuto)}
             </button>
           ` : ''}
         </div>

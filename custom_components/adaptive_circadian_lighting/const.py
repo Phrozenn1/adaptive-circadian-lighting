@@ -15,7 +15,6 @@ CONF_MAX_COLOR_TEMP = "max_color_temp"
 CONF_INTERVAL = "interval"
 CONF_TRANSITION = "transition"
 CONF_OVERRIDE_TIMEOUT = "override_timeout"
-CONF_ANTI_GLARE = "anti_glare"
 
 # Calculation Modes
 CALC_MODE_SUN = "sun"
