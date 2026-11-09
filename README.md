@@ -140,6 +140,6 @@ python3 -m unittest discover tests
 - **Soloppgang- og solnedgangsforskyvning:** Juster kurven med +/- minutter tilpasset lokale lysforhold og nabobygg.
 - **Kun tilpass ved tenning:** La lyset forbli statisk etter tenning for å unngå forstyrrende lysendringer under filmer eller måltider.
 - **Kveldsgrense for lysstyrke:** Sett et automatisk tak på lysstyrke om kvelden og natten.
-- **Anti-blending:** Pærer tennes direkte i dempet nattlys uten sjokkblits.
+- **Umiddelbar tilpasning ved tenning:** Pærer tilpasses døgnrytmens målnivå med en gang de slås på, uten forsinkelse eller sjokkblits om natten.
 - **Innebygd GUI:** Interaktivt Lovelace Dashboard-kort og dedikert sidepanel i Home Assistant.
 </details>
