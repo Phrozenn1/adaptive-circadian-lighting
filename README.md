@@ -71,8 +71,8 @@ The integration, options flow, entities, and UI cards automatically adapt to you
 - **Custom Sidebar Panel (`/adaptive-circadian`):**
   - Dedicated full-screen dashboard in Home Assistant's sidebar displaying all house zones side-by-side with global toggles.
 
-### 6. Anti-Glare (Nighttime Turn-On Protection)
-- Intercepts `light.turn_on` calls so when a light is switched on at night (via motion sensor or wall switch), it turns on directly to the calculated dim warm night level without any bright flash.
+### 8. Immediate Turn-On Adaptation (Nighttime Protection)
+- Reacts immediately to light state transitions from off to on so that when a light is switched on at night (via motion sensor or wall switch), it adapts directly to the calculated circadian target without delay.
 
 ---
 

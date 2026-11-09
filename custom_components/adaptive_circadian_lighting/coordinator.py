@@ -11,7 +11,6 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.event import async_track_time_interval
 
-from .anti_glare import AntiGlareInterceptor
 from .calc_engine import CurveCalculator, HybridCalculator, SunCalculator
 from .color_utils import kelvin_to_rgb, prepare_light_service_data
 from .const import (
@@ -20,7 +19,6 @@ from .const import (
     CALC_MODE_LUX,
     CALC_MODE_SUN,
     COLOR_MODE_AUTO,
-    CONF_ANTI_GLARE,
     CONF_AUTO_TURN_ON,
     CONF_CALC_MODE,
     CONF_CLOUD_BOOST_KELVIN,
@@ -270,14 +268,6 @@ class AdaptiveCoordinator:
             get_expected_state_callback=self._get_expected_state,
         )
 
-        anti_glare_on = config.get(CONF_ANTI_GLARE, True)
-        self.anti_glare = AntiGlareInterceptor(
-            hass,
-            target_lights=self.lights,
-            get_target_payload_callback=self._get_anti_glare_payload,
-            enabled=anti_glare_on,
-        )
-
         self._unsub_interval: Optional[Callable[[], None]] = None
         self._listeners: List[Callable[[], None]] = []
 
@@ -286,7 +276,6 @@ class AdaptiveCoordinator:
         self.override_mgr.start_tracking()
         if self.presence_mgr:
             self.presence_mgr.start_tracking()
-        self.anti_glare.start()
 
         if self.sleep_entity:
             from homeassistant.helpers.event import async_track_state_change_event
@@ -314,7 +303,6 @@ class AdaptiveCoordinator:
         self.override_mgr.stop_tracking()
         if self.presence_mgr:
             self.presence_mgr.stop_tracking()
-        self.anti_glare.stop()
 
     def register_listener(self, callback: Callable[[], None]) -> Callable[[], None]:
         """Register entity update listener."""
@@ -413,35 +401,6 @@ class AdaptiveCoordinator:
             self.target_rgb = list(self.profile_mgr.sleep_rgb)
         else:
             self.target_rgb = list(kelvin_to_rgb(self.target_kelvin))
-
-    def _get_anti_glare_payload(self, entity_id: str) -> Dict[str, Any]:
-        """Return target payload for intercepted light.turn_on."""
-        self._calculate_target_values()
-        self._already_adapted_lights.add(entity_id)
-        st = self.hass.states.get(entity_id)
-        modes = st.attributes.get(ATTR_SUPPORTED_COLOR_MODES) if st else []
-        min_k = st.attributes.get(ATTR_MIN_COLOR_TEMP_KELVIN) if st else None
-        max_k = st.attributes.get(ATTR_MAX_COLOR_TEMP_KELVIN) if st else None
-
-        rgb_override = (
-            tuple(self.profile_mgr.sleep_rgb)
-            if self.profile_mgr.is_sleep()
-            else None
-        )
-
-        payload = prepare_light_service_data(
-            modes,
-            min_k,
-            max_k,
-            self.target_brightness,
-            self.target_kelvin,
-            mode_pref=self.color_mode,
-            rgb_override=rgb_override,
-            transition=0.5,
-        )
-        payload["entity_id"] = entity_id
-        self.override_mgr.record_sent_state(entity_id, payload)
-        return payload
 
     def _get_expected_state(self, entity_id: str) -> Dict[str, Any]:
         """Return expected circadian target state for an entity."""
@@ -620,11 +579,23 @@ class AdaptiveCoordinator:
             self._notify_listeners()
 
     def _handle_light_turned_on(self, entity_id: str) -> None:
-        """Handle when a light is turned on."""
+        """Handle when a light is turned on: adapt immediately and update presence."""
         if self.presence_mgr and self.presence_mgr.room_state == "off":
             self.presence_mgr._set_room_state("occupied")
         else:
             self._notify_listeners()
+
+        if not self.adaptation_enabled:
+            return
+
+        # Adapt immediately upon turning on from off
+        if not self.override_mgr.is_overridden(entity_id):
+            coro = self._async_apply_to_light(entity_id, custom_transition=0.5, allow_turn_on=False)
+            try:
+                self.hass.async_create_task(coro)
+            except RuntimeError:
+                asyncio.run_coroutine_threadsafe(coro, self.hass.loop)
+            self._already_adapted_lights.add(entity_id)
 
     async def _on_presence_restore_manual(self, saved_states: Dict[str, Dict[str, Any]]) -> None:
         """Restore manual adjustments when reoccupied within grace period."""

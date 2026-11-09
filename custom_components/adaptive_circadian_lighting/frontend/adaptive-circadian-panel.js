@@ -240,6 +240,16 @@ class AdaptiveCircadianPanel extends HTMLElement {
     return PANEL_I18N[lang] || PANEL_I18N.en;
   }
 
+  _escapeHtml(str) {
+    if (str === null || str === undefined) return "";
+    return String(str)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+
   _handleClick(e) {
     if (!this._hass) return;
     const path = e.composedPath ? e.composedPath() : [e.target];
@@ -734,29 +744,29 @@ class AdaptiveCircadianPanel extends HTMLElement {
                 <div class="zone-card">
                   <div class="zone-header">
                     <div class="zone-title-wrap">
-                      <div class="zone-name">${inst.name}</div>
+                      <div class="zone-name">${this._escapeHtml(inst.name)}</div>
                       <span class="zone-status-badge ${inst.enabled ? 'on' : 'off'}">
-                        ${inst.enabled ? t.active : t.paused}
+                        ${inst.enabled ? this._escapeHtml(t.active) : this._escapeHtml(t.paused)}
                       </span>
                     </div>
                     <label class="switch" title="Toggle adaptation">
-                      <input type="checkbox" class="zone-toggle" data-entity="${inst.masterSwitch.entity_id}" ${inst.enabled ? 'checked' : ''}>
+                      <input type="checkbox" class="zone-toggle" data-entity="${this._escapeHtml(inst.masterSwitch.entity_id)}" ${inst.enabled ? 'checked' : ''}>
                       <span class="slider"></span>
                     </label>
                   </div>
 
                   <div class="zone-stats">
                     <div class="stat-item">
-                      <div class="label">${t.targetBright}</div>
-                      <div class="value">${inst.targetBrightness}%</div>
+                      <div class="label">${this._escapeHtml(t.targetBright)}</div>
+                      <div class="value">${this._escapeHtml(inst.targetBrightness)}%</div>
                     </div>
                     <div class="stat-item">
-                      <div class="label">${t.targetColor}</div>
+                      <div class="label">${this._escapeHtml(t.targetColor)}</div>
                       <div class="value value-color-row">
-                        <span class="color-rgb-box" style="background: rgb(${inst.rgb.join(',')});" title="RGB: ${inst.rgb.join(', ')}"></span>
-                        <span>${inst.targetKelvin}K</span>
+                        <span class="color-rgb-box" style="background: rgb(${inst.rgb.map(v => parseInt(v, 10) || 0).join(',')});" title="RGB: ${inst.rgb.map(v => parseInt(v, 10) || 0).join(', ')}"></span>
+                        <span>${this._escapeHtml(inst.targetKelvin)}K</span>
                       </div>
-                      <div class="rgb-subtext">RGB(${inst.rgb.join(', ')})</div>
+                      <div class="rgb-subtext">RGB(${inst.rgb.map(v => parseInt(v, 10) || 0).join(', ')})</div>
                     </div>
                   </div>
 
@@ -767,16 +777,16 @@ class AdaptiveCircadianPanel extends HTMLElement {
                   </div>
 
                   <div class="zone-badges">
-                    <span class="z-badge"><b>${t.phase}:</b> ${inst.phase}</span>
-                    <span class="z-badge boost"><b>${t.weather}:</b> ${inst.weatherBoost.replace('_', ' ')}</span>
-                    <span class="z-badge presence"><b>${t.presence}:</b> ${inst.presence}</span>
+                    <span class="z-badge"><b>${this._escapeHtml(t.phase)}:</b> ${this._escapeHtml(inst.phase)}</span>
+                    <span class="z-badge boost"><b>${this._escapeHtml(t.weather)}:</b> ${this._escapeHtml(inst.weatherBoost.replace('_', ' '))}</span>
+                    <span class="z-badge presence"><b>${this._escapeHtml(t.presence)}:</b> ${this._escapeHtml(inst.presence)}</span>
                   </div>
 
                   ${inst.overrides > 0 ? `
                     <div class="override-alert">
-                      <span>⚠️ ${inst.overrides} ${t.overriddenWarning}</span>
-                      <button class="btn-reset-single" data-action="zone-reset" data-prefix="${inst.prefix}">
-                        ${t.resetOverride}
+                      <span>⚠️ ${this._escapeHtml(inst.overrides)} ${this._escapeHtml(t.overriddenWarning)}</span>
+                      <button class="btn-reset-single" data-action="zone-reset" data-prefix="${this._escapeHtml(inst.prefix)}">
+                        ${this._escapeHtml(t.resetOverride)}
                       </button>
                     </div>
                   ` : ''}
@@ -786,9 +796,9 @@ class AdaptiveCircadianPanel extends HTMLElement {
                       <button
                         class="chip ${inst.profile === p ? 'active' : ''}"
                         data-action="select-profile"
-                        data-prefix="${inst.prefix}"
-                        data-profile="${p}">
-                        ${t.profiles[p] || p}
+                        data-prefix="${this._escapeHtml(inst.prefix)}"
+                        data-profile="${this._escapeHtml(p)}">
+                        ${this._escapeHtml(t.profiles[p] || p)}
                       </button>
                     `).join("")}
                   </div>

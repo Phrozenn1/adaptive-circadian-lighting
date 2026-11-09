@@ -11,7 +11,6 @@ from .const import (
     CALC_MODES,
     COLOR_MODES,
     CONF_ADAPT_ONLY_ON_BARE_TURN_ON,
-    CONF_ANTI_GLARE,
     CONF_AUTO_TURN_ON,
     CONF_CALC_MODE,
     CONF_CLOUD_BOOST_KELVIN,
@@ -259,7 +258,6 @@ class AdaptiveCircadianConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Required(CONF_OVERRIDE_TIMEOUT, default=DEFAULT_OVERRIDE_TIMEOUT): selector.NumberSelector(
                     selector.NumberSelectorConfig(min=0, max=480, step=5, unit_of_measurement="min")
                 ),
-                vol.Required(CONF_ANTI_GLARE, default=True): bool,
                 vol.Required(CONF_SLEEP_SCHEDULE_ENABLE, default=DEFAULT_SLEEP_SCHEDULE_ENABLE): bool,
                 vol.Required(CONF_SLEEP_START_TIME, default=DEFAULT_SLEEP_START_TIME): selector.TimeSelector(),
                 vol.Required(CONF_SLEEP_END_TIME, default=DEFAULT_SLEEP_END_TIME): selector.TimeSelector(),
@@ -384,7 +382,6 @@ class AdaptiveCircadianOptionsFlow(config_entries.OptionsFlow):
             vol.Required(CONF_OVERRIDE_TIMEOUT, default=int(current.get(CONF_OVERRIDE_TIMEOUT, DEFAULT_OVERRIDE_TIMEOUT))): selector.NumberSelector(
                 selector.NumberSelectorConfig(min=0, max=480, step=5, unit_of_measurement="min")
             ),
-            vol.Required(CONF_ANTI_GLARE, default=bool(current.get(CONF_ANTI_GLARE, True))): bool,
             vol.Required(CONF_PRESENCE_ENABLE, default=bool(current.get(CONF_PRESENCE_ENABLE, False))): bool,
             vol.Optional(CONF_MOTION_SENSORS, default=current.get(CONF_MOTION_SENSORS) or []): selector.EntitySelector(
                 selector.EntitySelectorConfig(domain=["binary_sensor", "sensor", "input_boolean"], multiple=True)
